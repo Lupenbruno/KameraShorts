@@ -51,3 +51,28 @@ paths:
   clips_dir: "data/clips"
   queue_path: "data/queue/upload_queue.json"
   log_path: "logs/pipeline.log"
+  istanbul_clips_dir: "data/istanbul_clips"
+  istanbul_log_path: "logs/istanbul_pipeline.log"
+  istanbul_queue_path: "data/queue/istanbul_upload_queue.json"
+
+# İstanbul pipeline ayarları
+istanbul:
+  times: ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
+  clip_duration: 180   # 3 dakika
+  videos_per_slot: 1
+
+# İstanbul YouTube kanalı (aynı hesap, farklı token/credentials kullanabilirsiniz)
+# Eğer aynı kanalı kullanıyorsanız youtube: bölümüyle aynı olabilir
+istanbul_youtube:
+  client_secret_path: "credentials/client_secret.json"
+  token_path: "credentials/token.json"
+  daily_quota_limit: 6
+  privacy_status: "public"
+  category_id: "19"   # Travel & Events — İstanbul manzaraları için uygun
+  tags:
+    - "İstanbul"
+    - "canlı kamera"
+    - "istanbul kamera"
+    - "istanbul manzara"
+    - "canlı yayın"
+    - "ibb"

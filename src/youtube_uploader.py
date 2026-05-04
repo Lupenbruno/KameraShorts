@@ -73,7 +73,7 @@ class YouTubeUploader:
             _, response = request.next_chunk()
 
         video_id = response["id"]
-        url = f"https://youtube.com/shorts/{video_id}"
+        url = f"https://youtube.com/watch?v={video_id}"
         self._log_upload(video_id, metadata["title"])
         log.info(f"YouTube'a yuklendi: {url}")
         return {"video_id": video_id, "url": url}

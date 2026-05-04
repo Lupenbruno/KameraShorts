@@ -7,11 +7,20 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 
+AYLAR = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran",
+         "Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"]
+GUNLER = ["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"]
+
+def turkce_tarih(dt: datetime) -> str:
+    gun = GUNLER[dt.weekday()]
+    return f"{dt.day} {AYLAR[dt.month-1]} {gun}"
+
 from src.camera_registry import CameraRegistry
 from src.clip_recorder import ClipRecorder
 from src.geocoder import Geocoder
 from src.title_generator import TitleGenerator
 from src.youtube_uploader import YouTubeUploader
+from src.audio_mixer import AudioMixer
 
 
 def setup_logging(log_path: str) -> logging.Logger:
@@ -37,6 +46,7 @@ class KameraShortsApp:
         self.geocoder = Geocoder()
         self.titler = TitleGenerator(self.config)
         self.uploader = YouTubeUploader(self.config)
+        self.mixer = AudioMixer(self.config)
 
     def run_once(self, count: int = 6, upload: bool = True):
         now = datetime.now()
@@ -70,6 +80,12 @@ class KameraShortsApp:
             metadata = self.titler.generate(vehicle, location, now)
             self.log.info(f"[{plate}] başlık: {metadata['title']}")
 
+            # Ambient + TTS ses ekle
+            tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+            metadata["tts_text"] = tts_text
+            clip_path = self.mixer.add_audio(clip_path, metadata, location)
+            self.log.info(f"[{plate}] ses eklendi")
+
             # YouTube'a yükle
             if upload:
                 if self.uploader.check_quota():
@@ -89,7 +105,7 @@ class KameraShortsApp:
 
     def run_daemon(self):
         for t in self.config["schedule"]["times"]:
-            schedule.every().day.at(t).do(self.run_once)
+            schedule.every().day.at(t).do(self.run_once, count=1)
             self.log.info(f"Zamanlayıcı: her gün {t}")
 
         self.log.info("Daemon modu başlatıldı. Ctrl+C ile dur.")

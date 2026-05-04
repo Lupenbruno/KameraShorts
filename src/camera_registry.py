@@ -20,9 +20,9 @@ class CameraRegistry:
 
         active = [
             v for v in data
-            if v.get("is_active")
-            and v.get("stream_url")
+            if v.get("stream_url")
             and v.get("dvr_serial_number")
+            and v.get("is_visible")
             and (not buses_only or v.get("vehicle_type") in self.BUS_TYPES)
         ]
         if limit:
