@@ -21,6 +21,7 @@ from src.geocoder import Geocoder
 from src.title_generator import TitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
+from src.notifier import TelegramNotifier
 
 
 def setup_logging(log_path: str) -> logging.Logger:
@@ -47,6 +48,7 @@ class KameraShortsApp:
         self.titler = TitleGenerator(self.config)
         self.uploader = YouTubeUploader(self.config)
         self.mixer = AudioMixer(self.config)
+        self.notifier = TelegramNotifier(self.config)
 
     def record_only(self, count: int = 1):
         """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""
@@ -138,9 +140,11 @@ class KameraShortsApp:
                 if self.uploader.check_quota():
                     result = self.uploader.upload(clip_path, metadata)
                     self.log.info(f"[{plate}] yüklendi: {result['url']}")
+                    self.notifier.video_uploaded(plate, metadata["title"], result["url"], "ankara")
                     success += 1
                 else:
-                    self.log.warning("[{plate}] günlük kota doldu, kuyruğa eklendi")
+                    self.log.warning(f"[{plate}] günlük kota doldu, kuyruğa eklendi")
+                    self.notifier.quota_warning("ankara")
                     self.uploader.add_to_queue(clip_path, metadata)
             else:
                 self.log.info(f"[{plate}] clip hazır (upload atlandı): {clip_path}")
@@ -155,6 +159,7 @@ class KameraShortsApp:
             schedule.every().day.at(t).do(self.run_once, count=1)
             self.log.info(f"Zamanlayıcı: her gün {t}")
 
+        self.notifier.system_started("Ankara")
         self.log.info("Daemon modu başlatıldı. Ctrl+C ile dur.")
         while True:
             schedule.run_pending()

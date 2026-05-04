@@ -4,7 +4,7 @@ from datetime import datetime, date
 from pathlib import Path
 
 import yaml
-from flask import Flask, Response, jsonify, render_template_string, send_file
+from flask import Flask, Response, jsonify, render_template_string, send_file, request
 
 CONFIG_PATH = Path("config.yaml")
 LOG_A = Path("logs/pipeline.log")
@@ -194,11 +194,25 @@ body{background:#0e0e0e;color:#d0d0d0;font-family:'Segoe UI',system-ui,sans-seri
     <h2>Sistemi Başlat</h2>
     <p>Her gün 6 vakit Ankara otobüs klibi (30 sn · Shorts)<br>
        ve 6 vakit İstanbul manzara videosu (3 dk) otomatik yüklenecek.</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" id="ctrl-btns">
-      <button class="big-btn" id="start-btn" onclick="startAll()">▶ Her İkisini Başlat</button>
-      <button class="stop-btn" id="stop-btn" style="display:none" onclick="stopAll()">⏹ Durdur</button>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <button class="big-btn" id="btn-start-a" style="background:#2d6fbf">▶ Ankara Başlat</button>
+        <button class="stop-btn" id="btn-stop-a" style="display:none">⏹ Ankara Durdur</button>
+        <span id="lbl-a" style="font-size:11px;color:#444">Durdu</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <button class="big-btn" id="btn-start-i">▶ İstanbul Başlat</button>
+        <button class="stop-btn" id="btn-stop-i" style="display:none">⏹ İstanbul Durdur</button>
+        <span id="lbl-i" style="font-size:11px;color:#444">Durdu</span>
+      </div>
     </div>
-    <div style="margin-top:12px;font-size:11px;color:#333" id="sys-status">Her iki kanal durdu</div>
+    <div style="margin-top:4px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="stop-btn" id="btn-start-all" style="font-size:12px;padding:8px 20px">▶▶ Her İkisini Başlat</button>
+      <button class="stop-btn" id="btn-test" style="font-size:12px;padding:8px 20px;border-color:#ffc107;color:#ffc107">⚡ Test</button>
+      <button class="stop-btn" id="btn-test-a" style="font-size:12px;padding:8px 20px;border-color:#4a9eff;color:#4a9eff">🚌 Ankara Test Kaydı</button>
+      <button class="stop-btn" id="btn-test-i" style="font-size:12px;padding:8px 20px;border-color:#2ecf8e;color:#2ecf8e">🌉 İstanbul Test Kaydı</button>
+    </div>
+    <div id="test-result" style="margin-top:12px;font-size:12px;color:#444;line-height:1.6"></div>
   </div>
 
   <!-- DURUM KARTLARI -->
@@ -267,51 +281,106 @@ body{background:#0e0e0e;color:#d0d0d0;font-family:'Segoe UI',system-ui,sans-seri
 </div>
 
 <script>
-let curLog = 'a';
+// --- buton event listener'ları ---
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('btn-start-a').addEventListener('click', function() {
+    fetch('/api/daemon/start/ankara', {method:'POST'}).then(function() { setTimeout(loadStats, 1000); });
+  });
+  document.getElementById('btn-stop-a').addEventListener('click', function() {
+    if (!confirm('Ankara durdurulsun mu?')) return;
+    fetch('/api/daemon/stop/ankara', {method:'POST'}).then(function() { setTimeout(loadStats, 1000); });
+  });
+  document.getElementById('btn-start-i').addEventListener('click', function() {
+    fetch('/api/daemon/start/istanbul', {method:'POST'}).then(function() { setTimeout(loadStats, 1000); });
+  });
+  document.getElementById('btn-stop-i').addEventListener('click', function() {
+    if (!confirm('Istanbul durdurulsun mu?')) return;
+    fetch('/api/daemon/stop/istanbul', {method:'POST'}).then(function() { setTimeout(loadStats, 1000); });
+  });
+  document.getElementById('btn-start-all').addEventListener('click', function() {
+    fetch('/api/daemon/start/ankara', {method:'POST'});
+    fetch('/api/daemon/start/istanbul', {method:'POST'});
+    setTimeout(loadStats, 1000);
+  });
+  document.getElementById('btn-test').addEventListener('click', function() {
+    var r = document.getElementById('test-result');
+    r.style.color = '#ffc107';
+    r.textContent = 'JavaScript calisiyor, API test ediliyor...';
+    fetch('/api/status').then(function(res) { return res.json(); }).then(function(d) {
+      r.style.color = '#4caf50';
+      r.textContent = 'SISTEM OK — Ankara: ' + (d.daemon_ankara ? 'Calisiyor' : 'Durdu') + ' | Istanbul: ' + (d.daemon_istanbul ? 'Calisiyor' : 'Durdu');
+    }).catch(function(e) {
+      r.style.color = '#e63946';
+      r.textContent = 'API HATASI: ' + e;
+    });
+  });
+
+  function testRecord(pipe) {
+    var r = document.getElementById('test-result');
+    var btn = document.getElementById('btn-test-' + (pipe==='ankara'?'a':'i'));
+    btn.disabled = true;
+    btn.textContent = '⏳ Kayit aliniyor...';
+    r.style.color = '#ffc107';
+    r.textContent = pipe + ' icin test kaydi basliyor (30-120 saniye surebilir)...';
+    fetch('/api/test/record/' + pipe, {method:'POST'})
+      .then(function(res) { return res.json(); })
+      .then(function(d) {
+        btn.disabled = false;
+        btn.textContent = pipe==='ankara' ? '🚌 Ankara Test Kaydi' : '🌉 Istanbul Test Kaydi';
+        if (d.ok) {
+          r.style.color = '#4caf50';
+          r.innerHTML = 'KAYIT BASARILI: <b>' + d.clip.split('\\').pop() + '</b> &nbsp; '
+            + '<button onclick="openClip(\'' + d.clip.replace(/\\/g,'\\\\') + '\')" '
+            + 'style="background:#4caf50;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">▶ Oynat</button>';
+        } else {
+          r.style.color = '#e63946';
+          r.textContent = 'KAYIT BASARISIZ. Log: ' + d.log;
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        r.style.color = '#e63946';
+        r.textContent = 'HATA: ' + e;
+      });
+  }
+
+  function openClip(path) {
+    fetch('/api/open_clip', {method:'POST', body: JSON.stringify({clip: path}), headers:{'Content-Type':'application/json'}});
+  }
+
+  document.getElementById('btn-test-a').addEventListener('click', function() { testRecord('ankara'); });
+  document.getElementById('btn-test-i').addEventListener('click', function() { testRecord('istanbul'); });
+});
 
 function selLog(k) {
-  curLog = k;
   document.getElementById('log-a').style.display = k==='a'?'':'none';
   document.getElementById('log-i').style.display = k==='i'?'':'none';
   document.getElementById('ltab-a').className = 'ltab'+(k==='a'?' act-a':'');
   document.getElementById('ltab-i').className = 'ltab'+(k==='i'?' act-i':'');
 }
 
-function startAll() {
-  fetch('/api/daemon/start/ankara', {method:'POST'});
-  fetch('/api/daemon/start/istanbul', {method:'POST'});
-  setTimeout(loadStats, 800);
-}
-
-function stopAll() {
-  if (!confirm('Her iki daemon durdurulsun mu?')) return;
-  fetch('/api/daemon/stop/ankara', {method:'POST'});
-  fetch('/api/daemon/stop/istanbul', {method:'POST'});
-  setTimeout(loadStats, 800);
-}
-
-function setDaemonUI(isRunning) {
-  document.getElementById('start-btn').style.display = isRunning ? 'none' : '';
-  document.getElementById('stop-btn').style.display  = isRunning ? '' : 'none';
-  document.getElementById('sys-status').textContent  = isRunning
-    ? 'Sistem aktif — her vakit otomatik yükleme yapılacak'
-    : 'Her iki kanal durdu';
+function updateBtns(key, alive) {
+  var s = document.getElementById('btn-start-'+key);
+  var p = document.getElementById('btn-stop-'+key);
+  var l = document.getElementById('lbl-'+key);
+  if (s) s.style.display = alive ? 'none' : '';
+  if (p) p.style.display = alive ? '' : 'none';
+  if (l) { l.textContent = alive ? '● Çalışıyor' : 'Durdu'; l.style.color = alive ? '#4caf50' : '#444'; }
 }
 
 function setPipeUI(key, alive, ytCount, clipCount) {
-  const dot = document.getElementById('dot-'+key);
-  const txt = document.getElementById('stxt-'+key);
-  dot.className = 'dot ' + (alive?'on':'off');
-  txt.className = 'status-txt ' + (alive?'on':'off');
-  txt.textContent = alive ? 'Çalışıyor' : 'Durdu';
-  document.getElementById('yt-'+key).textContent  = ytCount;
-  document.getElementById('clips-'+key).textContent = clipCount;
+  var dot = document.getElementById('dot-'+key);
+  var txt = document.getElementById('stxt-'+key);
+  if (dot) dot.className = 'dot ' + (alive?'on':'off');
+  if (txt) { txt.className = 'status-txt '+(alive?'on':'off'); txt.textContent = alive?'Çalışıyor':'Durdu'; }
+  var yt = document.getElementById('yt-'+key);
+  var cl = document.getElementById('clips-'+key);
+  if (yt) yt.textContent = ytCount;
+  if (cl) cl.textContent = clipCount;
+  updateBtns(key, alive);
 }
 
 function loadStats() {
   fetch('/api/status').then(r=>r.json()).then(d => {
-    const anyOn = d.daemon_ankara || d.daemon_istanbul;
-    setDaemonUI(anyOn);
     setPipeUI('a', d.daemon_ankara,  d.yt_a, d.clips_a);
     setPipeUI('i', d.daemon_istanbul, d.yt_i, d.clips_i);
     document.getElementById('next-time').textContent = d.next_time;
@@ -386,6 +455,39 @@ setInterval(loadLogs, 30000);
 def index():
     return render_template_string(TMPL)
 
+
+@app.route("/api/test/record/<pipeline>", methods=["POST"])
+def api_test_record(pipeline):
+    if pipeline not in ("ankara", "istanbul"):
+        return jsonify({"error": "bad pipeline"}), 400
+    script = "main.py" if pipeline == "ankara" else "istanbul_main.py"
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, script, "--record-only", "--count", "1"],
+            cwd=str(Path(__file__).parent),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        out, _ = proc.communicate(timeout=120)
+        # Son kaydedilen mp4'ü bul
+        clips_dir = CLIPS_A if pipeline == "ankara" else CLIPS_I
+        clips = sorted(clips_dir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if clips:
+            return jsonify({"ok": True, "clip": str(clips[0]), "log": out[-2000:]})
+        return jsonify({"ok": False, "log": out[-2000:]})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "log": "Timeout — 120 saniye doldu"})
+    except Exception as e:
+        return jsonify({"ok": False, "log": str(e)})
+
+@app.route("/api/open_clip", methods=["POST"])
+def api_open_clip():
+    import json as _json
+    data = _json.loads(request.data)
+    clip = data.get("clip", "")
+    if clip and Path(clip).exists():
+        subprocess.Popen(["explorer", clip])
+        return jsonify({"ok": True})
+    return jsonify({"ok": False}), 400
 
 @app.route("/api/daemon/<action>/<pipeline>", methods=["POST"])
 def api_daemon(action, pipeline):

@@ -20,6 +20,7 @@ from src.istanbul_recorder import IstanbulRecorder
 from src.istanbul_title_generator import IstanbulTitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
+from src.notifier import TelegramNotifier
 
 
 def setup_logging(log_path: str) -> logging.Logger:
@@ -53,6 +54,7 @@ class IstanbulApp:
         istanbul_cfg["paths"]["queue_path"] = self.config["paths"].get("istanbul_queue_path", "data/queue/istanbul_upload_queue.json")
         self.uploader = YouTubeUploader(istanbul_cfg)
         self.mixer = AudioMixer(self.config)
+        self.notifier = TelegramNotifier(self.config)
 
     def record_only(self, count: int = 1):
         """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""
@@ -143,9 +145,11 @@ class IstanbulApp:
                 if self.uploader.check_quota():
                     result = self.uploader.upload(clip_path, metadata)
                     self.log.info(f"[{cam_name}] yüklendi: {result['url']}")
+                    self.notifier.video_uploaded(cam_name, metadata["title"], result["url"], "istanbul")
                     success += 1
                 else:
                     self.log.warning(f"[{cam_name}] günlük kota doldu, kuyruğa eklendi")
+                    self.notifier.quota_warning("istanbul")
                     self.uploader.add_to_queue(clip_path, metadata)
             else:
                 self.log.info(f"[{cam_name}] klip hazır (upload atlandı): {clip_path}")
@@ -162,6 +166,7 @@ class IstanbulApp:
             schedule.every().day.at(t).do(self.run_once, count=count)
             self.log.info(f"Zamanlayıcı: her gün {t} → {count} video")
 
+        self.notifier.system_started("İstanbul")
         self.log.info("İstanbul daemon modu başlatıldı. Ctrl+C ile dur.")
         while True:
             schedule.run_pending()
