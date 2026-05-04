@@ -87,7 +87,7 @@ class IstanbulApp:
             self.log.info(f"[{cam_name}] başlık: {metadata['title']}")
 
             # TTS + ambient ses ekle
-            tts_text = f"{cam_name}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+            tts_text = f"{camera['location']}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"])
             self.log.info(f"[{cam_name}] ses eklendi")
