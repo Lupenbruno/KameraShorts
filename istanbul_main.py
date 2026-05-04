@@ -60,8 +60,7 @@ class IstanbulApp:
         now = datetime.now()
         self.log.info(f"=== {now.strftime('%d/%m/%Y %H:%M')} — Istanbul kayit modunda basliyor ===")
 
-        all_cams = self.registry.get_all_cameras()
-        cameras = self.registry.get_random_cameras(count=min(len(all_cams), max(count * 4, 12)))
+        cameras = self.registry.get_next_cameras(count=count * 4)
         self.log.info(f"{len(cameras)} aday kamera, {count} klip hedefleniyor")
 
         success, tried, filtered = 0, 0, 0
@@ -106,9 +105,8 @@ class IstanbulApp:
         now = datetime.now()
         self.log.info(f"=== {now.strftime('%d/%m/%Y %H:%M')} — İstanbul pipeline başlıyor ===")
 
-        # Tüm kameraları karıştır, count * 3 aday dene
-        all_cams = self.registry.get_all_cameras()
-        cameras = self.registry.get_random_cameras(count=min(len(all_cams), max(count * 4, 12)))
+        # Sıradaki kameraları al — her slot bir sonraki kameradan devam eder
+        cameras = self.registry.get_next_cameras(count=count * 4)
         self.log.info(f"{len(cameras)} aday kamera, {count} başarılı video hedefleniyor")
 
         success = 0
