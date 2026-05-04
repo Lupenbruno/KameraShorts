@@ -1,0 +1,53 @@
+schedule:
+  # Günde 6 vakit — 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
+  times: ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
+  clip_duration: 30  # saniye
+
+cameras:
+  # YouTube Live yayınları — resmi belediye ve karayolları kanalları
+  # type: youtube_live → yt-dlp ile yakalanır
+  # type: hls         → doğrudan m3u8 URL
+  # type: mjpeg       → MJPEG stream (snapshot'lardan video yapılır)
+
+  - id: "ibb_trafik_bogazici"
+    name: "İBB Trafik - Boğaziçi Köprüsü"
+    city: "İstanbul"
+    type: "youtube_live"
+    url: "https://www.youtube.com/@IBBKanalı/streams"   # güncellenecek
+    enabled: false
+
+  - id: "kgm_tem_istanbul"
+    name: "KGM - TEM Otoyolu İstanbul"
+    city: "İstanbul"
+    type: "youtube_live"
+    url: ""   # URL eklenecek
+    enabled: false
+
+  # Çalışan örnek — test için Windy.com webcam (public)
+  - id: "istanbul_bogaz"
+    name: "İstanbul - Boğaz"
+    city: "İstanbul"
+    type: "youtube_live"
+    url: "https://www.youtube.com/watch?v=9Auq9mYxFEE"  # IBB canlı trafik
+    enabled: true
+
+youtube:
+  client_secret_path: "credentials/client_secret.json"
+  token_path: "credentials/token.json"
+  daily_quota_limit: 6
+  privacy_status: "public"
+  category_id: "22"   # People & Blogs — trafik için uygun
+  tags:
+    - "trafik"
+    - "trafik kamerası"
+    - "canlı trafik"
+    - "türkiye"
+    - "shorts"
+    - "karayolları"
+
+ffmpeg_path: "C:\\Users\\arsen\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
+
+paths:
+  clips_dir: "data/clips"
+  queue_path: "data/queue/upload_queue.json"
+  log_path: "logs/pipeline.log"
