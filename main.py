@@ -48,6 +48,53 @@ class KameraShortsApp:
         self.uploader = YouTubeUploader(self.config)
         self.mixer = AudioMixer(self.config)
 
+    def record_only(self, count: int = 1):
+        """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""
+        import json as _json
+        now = datetime.now()
+        self.log.info(f"=== {now.strftime('%d/%m/%Y %H:%M')} — kayit modunda basliyor ===")
+
+        candidates = self.registry.get_active_cameras(limit=count * 10)
+        self.log.info(f"{len(candidates)} aday kamera, {count} klip hedefleniyor")
+
+        success, tried, filtered = 0, 0, 0
+        for vehicle in candidates:
+            if success >= count:
+                break
+            tried += 1
+            plate = vehicle.get("license_plate", "?")
+            self.log.info(f"[{plate}] kayit basliyor...")
+
+            clip_path = self.recorder.record(vehicle, now)
+            if not clip_path:
+                filtered += 1
+                self.log.warning(f"[{plate}] clip alinamadi (donuk/bulanik/offline), atlaniyor")
+                continue
+
+            lat = vehicle.get("latitude", 0)
+            lon = vehicle.get("longitude", 0)
+            location = self.geocoder.get_location_name(lat, lon)
+            self.log.info(f"[{plate}] konum: {location}")
+
+            metadata = self.titler.generate(vehicle, location, now)
+            self.log.info(f"[{plate}] baslik: {metadata['title']}")
+
+            tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+            metadata["tts_text"] = tts_text
+            clip_path = self.mixer.add_audio(clip_path, metadata, location)
+            self.log.info(f"[{plate}] ses eklendi")
+
+            meta = {k: v for k, v in metadata.items() if k != "tts_text"}
+            meta.update({"city": "ankara", "clip_path": clip_path,
+                         "recorded_at": now.isoformat(), "uploaded": False, "youtube_url": None})
+            meta_path = Path(clip_path).with_suffix(".meta.json")
+            meta_path.write_text(_json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            self.log.info(f"[{plate}] HAZIR: {Path(clip_path).name}")
+            success += 1
+
+        self.log.info(f"=== KAYIT TAMAM: {success} klip / {tried} denendi / {filtered} elendi ===")
+
     def run_once(self, count: int = 6, upload: bool = True):
         now = datetime.now()
         self.log.info(f"=== {now.strftime('%d/%m/%Y %H:%M')} — pipeline başlıyor ===")
@@ -121,6 +168,7 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=6, help="Kaç video")
     parser.add_argument("--no-upload", action="store_true", help="YouTube'a yükleme")
     parser.add_argument("--upload-queue", action="store_true", help="Kuyruktakileri yükle")
+    parser.add_argument("--record-only", action="store_true", help="Sadece kaydet, upload yapma")
     parser.add_argument("--config", default="config.yaml")
     args = parser.parse_args()
 
@@ -128,6 +176,8 @@ if __name__ == "__main__":
 
     if args.upload_queue:
         app.uploader.upload_queue()
+    elif getattr(args, 'record_only', False):
+        app.record_only(count=args.count)
     elif args.now:
         app.run_once(count=args.count, upload=not args.no_upload)
     elif args.daemon:
