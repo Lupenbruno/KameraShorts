@@ -1,5 +1,5 @@
 """AsfaltTV — Basit kontrol paneli."""
-import json, subprocess, sys, threading, time
+import json, subprocess, sys, threading, time, base64, functools
 from datetime import datetime, date
 from pathlib import Path
 
@@ -12,8 +12,51 @@ LOG_I = Path("logs/istanbul_pipeline.log")
 CLIPS_A = Path("data/clips")
 CLIPS_I = Path("data/istanbul_clips")
 
+# --- Giriş bilgileri ---
+DASHBOARD_USER = "asfalt"
+DASHBOARD_PASS = "Asfalt2026!"
+
 app = Flask(__name__)
 _daemons = {"ankara": None, "istanbul": None}
+
+
+def require_auth(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(auth[6:]).decode("utf-8")
+                user, pw = decoded.split(":", 1)
+                if user == DASHBOARD_USER and pw == DASHBOARD_PASS:
+                    return f(*args, **kwargs)
+            except Exception:
+                pass
+        return Response(
+            "Giris yapmaniz gerekiyor.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="AsfaltTV"'}
+        )
+    return decorated
+
+
+# Tüm route'lara auth uygula
+@app.before_request
+def check_auth():
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth[6:]).decode("utf-8")
+            user, pw = decoded.split(":", 1)
+            if user == DASHBOARD_USER and pw == DASHBOARD_PASS:
+                return None
+        except Exception:
+            pass
+    return Response(
+        "Giris yapmaniz gerekiyor.",
+        401,
+        {"WWW-Authenticate": 'Basic realm="AsfaltTV"'}
+    )
 
 
 def _cfg():
@@ -267,6 +310,14 @@ body{background:#0e0e0e;color:#d0d0d0;font-family:'Segoe UI',system-ui,sans-seri
     </div>
   </div>
 
+  <!-- KLİPLER -->
+  <div class="uploads-card">
+    <h3>Son Kaydedilen Klipler</h3>
+    <div class="ulist" id="clips-list">
+      <div class="empty-msg">Klip bulunamadı</div>
+    </div>
+  </div>
+
   <!-- LOG -->
   <div class="log-card">
     <h3>Log</h3>
@@ -319,28 +370,50 @@ document.addEventListener('DOMContentLoaded', function() {
     var r = document.getElementById('test-result');
     var btn = document.getElementById('btn-test-' + (pipe==='ankara'?'a':'i'));
     btn.disabled = true;
-    btn.textContent = '⏳ Kayit aliniyor...';
-    r.style.color = '#ffc107';
-    r.textContent = pipe + ' icin test kaydi basliyor (30-120 saniye surebilir)...';
-    fetch('/api/test/record/' + pipe, {method:'POST'})
-      .then(function(res) { return res.json(); })
-      .then(function(d) {
+    btn.textContent = '⏳ Kayıt alınıyor...';
+    r.style.cssText = 'margin-top:12px;font-size:11px;color:#aaa;line-height:1.8;text-align:left;background:#0e0e0e;padding:10px;border-radius:6px;max-height:200px;overflow-y:auto;font-family:Consolas,monospace';
+    r.textContent = '';
+
+    var es = new EventSource('/api/test/record/' + pipe);
+    es.onmessage = function(e) {
+      var msg = e.data;
+      if (msg.startsWith('__CLIP__')) {
+        es.close();
         btn.disabled = false;
-        btn.textContent = pipe==='ankara' ? '🚌 Ankara Test Kaydi' : '🌉 Istanbul Test Kaydi';
-        if (d.ok) {
-          r.style.color = '#4caf50';
-          r.innerHTML = 'KAYIT BASARILI: <b>' + d.clip.split('\\').pop() + '</b> &nbsp; '
-            + '<button onclick="openClip(\'' + d.clip.replace(/\\/g,'\\\\') + '\')" '
-            + 'style="background:#4caf50;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">▶ Oynat</button>';
-        } else {
-          r.style.color = '#e63946';
-          r.textContent = 'KAYIT BASARISIZ. Log: ' + d.log;
-        }
-      }).catch(function(e) {
+        btn.textContent = pipe==='ankara' ? '🚌 Ankara Test Kaydı' : '🌉 İstanbul Test Kaydı';
+        var clipPath = msg.replace('__CLIP__','');
+        var fname = clipPath.split('\\').pop();
+        var div = document.createElement('div');
+        div.style.cssText = 'margin-top:8px;padding:8px;background:#1a2e1a;border-radius:4px;color:#4caf50;font-family:sans-serif';
+        div.innerHTML = '✅ <b>KAYIT BAŞARILI:</b> ' + fname + ' &nbsp;'
+          + '<button onclick="openInExplorer(\'' + clipPath.replace(/\\/g,'\\\\') + '\')" '
+          + 'style="background:#4caf50;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">📁 Klasörde Aç</button>';
+        r.appendChild(div);
+        r.scrollTop = r.scrollHeight;
+        loadClips();
+      } else if (msg.startsWith('__FAIL__')) {
+        es.close();
         btn.disabled = false;
-        r.style.color = '#e63946';
-        r.textContent = 'HATA: ' + e;
-      });
+        btn.textContent = pipe==='ankara' ? '🚌 Ankara Test Kaydı' : '🌉 İstanbul Test Kaydı';
+        var div = document.createElement('div');
+        div.style.color = '#e63946';
+        div.textContent = '❌ ' + msg.replace('__FAIL__','');
+        r.appendChild(div);
+      } else {
+        var line = document.createElement('div');
+        line.style.color = msg.includes('HATA') || msg.includes('hata') ? '#e63946'
+                         : msg.includes('HAZIR') || msg.includes('OK') ? '#4caf50'
+                         : msg.includes('WARNING') || msg.includes('atlani') ? '#ffc107'
+                         : '#888';
+        line.textContent = msg;
+        r.appendChild(line);
+        r.scrollTop = r.scrollHeight;
+      }
+    };
+    es.onerror = function() {
+      es.close();
+      btn.disabled = false;
+    };
   }
 
   function openClip(path) {
@@ -441,10 +514,42 @@ function loadLogs() {
   });
 }
 
+function openInExplorer(path) {
+  fetch('/api/open_clip', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({clip: path})
+  });
+}
+
+function loadClips() {
+  fetch('/api/clips').then(r=>r.json()).then(d => {
+    var all = [...(d.ankara||[]).map(c=>({...c,city:'a'})),
+               ...(d.istanbul||[]).map(c=>({...c,city:'i'}))];
+    all.sort(function(a,b){ return b.name.localeCompare(a.name); });
+    var el = document.getElementById('clips-list');
+    if (!all.length) {
+      el.innerHTML = '<div class="empty-msg">Henüz klip yok</div>';
+      return;
+    }
+    el.innerHTML = all.slice(0,10).map(function(c) {
+      return '<div class="uitem">' +
+        '<span class="utag ' + c.city + '">' + (c.city==='a'?'🚌 Ankara':'🌉 İstanbul') + '</span>' +
+        '<span class="utitle" title="' + c.path + '">' + (c.title || c.name) + '</span>' +
+        '<span style="font-size:10px;color:#555;margin-right:8px">' + c.size_mb + ' MB</span>' +
+        '<button onclick="openInExplorer(\'' + c.path.replace(/\\/g,'\\\\') + '\')" ' +
+        'style="background:#1a1a1a;border:1px solid #333;color:#aaa;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">📁 Aç</button>' +
+        '</div>';
+    }).join('');
+  });
+}
+
 loadStats();
 loadLogs();
+loadClips();
 setInterval(loadStats, 20000);
 setInterval(loadLogs, 30000);
+setInterval(loadClips, 30000);
 </script>
 </body>
 </html>
@@ -456,28 +561,36 @@ def index():
     return render_template_string(TMPL)
 
 
-@app.route("/api/test/record/<pipeline>", methods=["POST"])
+@app.route("/api/test/record/<pipeline>")
 def api_test_record(pipeline):
     if pipeline not in ("ankara", "istanbul"):
         return jsonify({"error": "bad pipeline"}), 400
     script = "main.py" if pipeline == "ankara" else "istanbul_main.py"
-    try:
+    clips_dir = CLIPS_A if pipeline == "ankara" else CLIPS_I
+
+    def generate():
+        import io
         proc = subprocess.Popen(
-            [sys.executable, script, "--record-only", "--count", "1"],
+            [sys.executable, "-u", script, "--record-only", "--count", "1"],
             cwd=str(Path(__file__).parent),
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1
         )
-        out, _ = proc.communicate(timeout=120)
-        # Son kaydedilen mp4'ü bul
-        clips_dir = CLIPS_A if pipeline == "ankara" else CLIPS_I
+        yield "data: BAŞLADI\n\n"
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                yield f"data: {line}\n\n"
+        proc.wait()
+        # Son klip
         clips = sorted(clips_dir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
         if clips:
-            return jsonify({"ok": True, "clip": str(clips[0]), "log": out[-2000:]})
-        return jsonify({"ok": False, "log": out[-2000:]})
-    except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "log": "Timeout — 120 saniye doldu"})
-    except Exception as e:
-        return jsonify({"ok": False, "log": str(e)})
+            yield f"data: __CLIP__{clips[0]}\n\n"
+        else:
+            yield "data: __FAIL__Klip oluşturulamadı\n\n"
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @app.route("/api/open_clip", methods=["POST"])
 def api_open_clip():
@@ -485,9 +598,47 @@ def api_open_clip():
     data = _json.loads(request.data)
     clip = data.get("clip", "")
     if clip and Path(clip).exists():
-        subprocess.Popen(["explorer", clip])
+        # Dosyayı seçili olarak File Explorer'da aç
+        subprocess.Popen(["explorer", "/select,", clip])
+        return jsonify({"ok": True})
+    elif clip:
+        # Dosya yoksa klasörü aç
+        folder = str(Path(clip).parent)
+        subprocess.Popen(["explorer", folder])
         return jsonify({"ok": True})
     return jsonify({"ok": False}), 400
+
+@app.route("/api/clips")
+def api_clips():
+    """Son kaydedilen klipleri döndür."""
+    def get_clips(clips_dir, city):
+        if not clips_dir.exists():
+            return []
+        clips = sorted(clips_dir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]
+        result = []
+        for c in clips:
+            meta_path = c.with_suffix(".meta.json")
+            title = ""
+            if meta_path.exists():
+                try:
+                    import json as _j
+                    m = _j.loads(meta_path.read_text(encoding="utf-8"))
+                    title = m.get("title", "")
+                except:
+                    pass
+            result.append({
+                "path": str(c),
+                "name": c.name,
+                "title": title,
+                "city": city,
+                "size_mb": round(c.stat().st_size / 1024 / 1024, 1),
+                "folder": str(c.parent),
+            })
+        return result
+    return jsonify({
+        "ankara": get_clips(CLIPS_A, "ankara"),
+        "istanbul": get_clips(CLIPS_I, "istanbul"),
+    })
 
 @app.route("/api/daemon/<action>/<pipeline>", methods=["POST"])
 def api_daemon(action, pipeline):
