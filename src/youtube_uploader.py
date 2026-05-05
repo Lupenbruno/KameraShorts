@@ -78,16 +78,22 @@ class YouTubeUploader:
         log.info(f"YouTube'a yuklendi: {url}")
 
         # Yükleme başarılı — lokal dosyayı ve meta.json'ı sil
-        try:
-            p = Path(video_path)
-            meta = p.with_suffix(".meta.json")
-            if p.exists():
-                p.unlink()
-                log.info(f"Lokal klip silindi: {p.name}")
-            if meta.exists():
-                meta.unlink()
-        except Exception as e:
-            log.warning(f"Lokal silme hatasi: {e}")
+        import time as _time
+        for attempt in range(5):
+            try:
+                p = Path(video_path)
+                meta = p.with_suffix(".meta.json")
+                if p.exists():
+                    p.unlink()
+                    log.info(f"Lokal klip silindi: {p.name}")
+                if meta.exists():
+                    meta.unlink()
+                break
+            except Exception as e:
+                if attempt < 4:
+                    _time.sleep(2)
+                else:
+                    log.warning(f"Lokal silme hatasi: {e}")
 
         return {"video_id": video_id, "url": url}
 
