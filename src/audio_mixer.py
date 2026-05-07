@@ -44,9 +44,11 @@ class AudioMixer:
 
             if tts_ok:
                 if has_audio:
-                    audio_filter = "[0:a]volume=0.8[orig];anoisesrc=c=pink:r=44100,volume=0.06[amb];[1:a]volume=1.5,adelay=500|500[tts];[orig][amb][tts]amix=inputs=3:duration=first[out]"
+                    # Orijinal ses + TTS, gürültü yok
+                    audio_filter = "[0:a]volume=0.9[orig];[1:a]volume=1.6,adelay=500|500[tts];[orig][tts]amix=inputs=2:duration=first[out]"
                 else:
-                    audio_filter = "anoisesrc=c=pink:r=44100,volume=0.06[amb];[1:a]volume=1.5,adelay=500|500[tts];[amb][tts]amix=inputs=2:duration=longest[out]"
+                    # TTS + çok kısık pembe gürültü arka plan (0.02 = neredeyse duyulmaz)
+                    audio_filter = "anoisesrc=c=pink:r=44100,volume=0.02[amb];[1:a]volume=1.6,adelay=500|500[tts];[amb][tts]amix=inputs=2:duration=longest[out]"
                 cmd = [
                     self.ffmpeg, "-y",
                     "-i", str(video), "-i", tts_wav,
@@ -57,17 +59,15 @@ class AudioMixer:
                 ]
             else:
                 if has_audio:
-                    audio_filter = "[0:a]volume=0.8[orig];anoisesrc=c=pink:r=44100,volume=0.07[amb];[orig][amb]amix=inputs=2:duration=first[out]"
+                    # Sadece orijinal ses, gürültü yok
                     cmd = [self.ffmpeg, "-y", "-i", str(video),
-                           "-filter_complex", audio_filter,
-                           "-map", "0:v", "-map", "[out]",
+                           "-map", "0:v", "-map", "0:a",
                            "-c:v", "copy", "-c:a", "aac", str(out_path)]
                 else:
+                    # Ses yok, sessiz video
                     cmd = [self.ffmpeg, "-y", "-i", str(video),
-                           "-f", "lavfi", "-i", "anoisesrc=c=pink:r=44100",
-                           "-filter_complex", "[1:a]volume=0.07[amb]",
-                           "-map", "0:v", "-map", "[amb]",
-                           "-c:v", "copy", "-c:a", "aac", "-shortest", str(out_path)]
+                           "-map", "0:v", "-an",
+                           "-c:v", "copy", str(out_path)]
 
             result = subprocess.run(cmd, capture_output=True, timeout=300)
             if result.returncode == 0 and out_path.exists():

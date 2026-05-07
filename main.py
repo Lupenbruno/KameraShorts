@@ -15,6 +15,7 @@ def turkce_tarih(dt: datetime) -> str:
     gun = GUNLER[dt.weekday()]
     return f"{dt.day} {AYLAR[dt.month-1]} {gun}"
 
+import json as _json
 from src.camera_registry import CameraRegistry
 from src.clip_recorder import ClipRecorder
 from src.geocoder import Geocoder
@@ -22,6 +23,29 @@ from src.title_generator import TitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
+from src.camera_scorer import CameraScorer
+
+USED_PLATES_FILE = Path("data/ankara_used_plates.json")
+
+def _load_used_plates() -> set:
+    """Bugün kullanılan plakaları yükle. Tarih değiştiyse sıfırla."""
+    today = datetime.now().date().isoformat()
+    try:
+        if USED_PLATES_FILE.exists():
+            data = _json.loads(USED_PLATES_FILE.read_text(encoding="utf-8"))
+            if data.get("date") == today:
+                return set(data.get("plates", []))
+    except Exception:
+        pass
+    return set()
+
+def _save_used_plates(plates: set):
+    today = datetime.now().date().isoformat()
+    USED_PLATES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    USED_PLATES_FILE.write_text(
+        _json.dumps({"date": today, "plates": list(plates)}, ensure_ascii=False),
+        encoding="utf-8"
+    )
 
 
 def setup_logging(log_path: str) -> logging.Logger:
@@ -49,6 +73,7 @@ class KameraShortsApp:
         self.uploader = YouTubeUploader(self.config)
         self.mixer = AudioMixer(self.config)
         self.notifier = TelegramNotifier(self.config)
+        self.scorer = CameraScorer(ffmpeg_path=self.config.get("ffmpeg_path", "ffmpeg"))
 
     def record_only(self, count: int = 1):
         """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""
@@ -97,12 +122,19 @@ class KameraShortsApp:
 
         self.log.info(f"=== KAYIT TAMAM: {success} klip / {tried} denendi / {filtered} elendi ===")
 
-    def run_once(self, count: int = 6, upload: bool = True):
+    def run_once(self, count: int = 4, upload: bool = True):
         now = datetime.now()
         self.log.info(f"=== {now.strftime('%d/%m/%Y %H:%M')} — pipeline başlıyor ===")
 
-        candidates = self.registry.get_active_cameras(limit=count * 10)
-        self.log.info(f"{len(candidates)} aday kamera, {count} başarılı clip hedefleniyor")
+        used_plates = _load_used_plates()
+        candidates = self.registry.get_active_cameras(limit=count * 20)
+        # Bugün kullanılmış plakaları filtrele
+        candidates = [v for v in candidates
+                      if v.get("license_plate", "?") not in used_plates]
+        self.log.info(f"{len(candidates)} aday kamera (bugün kullanılmamış), {count} hedefleniyor")
+        # Skor sistemine göre en kalitelileri öne al
+        self.log.info("Kamera kalitesi analiz ediliyor...")
+        candidates = self.scorer.pick_best(candidates, now=now, top_n=count * 2)
 
         success = 0
         vehicles_tried = 0
@@ -138,10 +170,16 @@ class KameraShortsApp:
             # YouTube'a yükle
             if upload:
                 if self.uploader.check_quota():
-                    result = self.uploader.upload(clip_path, metadata)
-                    self.log.info(f"[{plate}] yüklendi: {result['url']}")
-                    self.notifier.video_uploaded(plate, metadata["title"], result["url"], "ankara")
-                    success += 1
+                    try:
+                        result = self.uploader.upload(clip_path, metadata)
+                        self.log.info(f"[{plate}] yüklendi: {result['url']}")
+                        self.notifier.video_uploaded(plate, metadata["title"], result["url"], "ankara")
+                        used_plates.add(plate)
+                        _save_used_plates(used_plates)
+                        success += 1
+                    except Exception as e:
+                        self.log.error(f"[{plate}] YouTube yukleme hatasi: {e}, kuyruğa eklendi")
+                        self.uploader.add_to_queue(clip_path, metadata)
                 else:
                     self.log.warning(f"[{plate}] günlük kota doldu, kuyruğa eklendi")
                     self.notifier.quota_warning("ankara")
@@ -150,14 +188,17 @@ class KameraShortsApp:
                 self.log.info(f"[{plate}] clip hazır (upload atlandı): {clip_path}")
                 import subprocess as sp, sys
                 sp.Popen([clip_path], shell=True)
+                used_plates.add(plate)
+                _save_used_plates(used_plates)
                 success += 1
 
         self.log.info(f"=== Tamamlandı: {success}/{vehicles_tried} denendi, {success} başarılı ===")
 
     def run_daemon(self):
+        per_slot = self.config["schedule"].get("videos_per_slot", 4)
         for t in self.config["schedule"]["times"]:
-            schedule.every().day.at(t).do(self.run_once, count=1)
-            self.log.info(f"Zamanlayıcı: her gün {t}")
+            schedule.every().day.at(t).do(self.run_once, count=per_slot)
+            self.log.info(f"Zamanlayıcı: her gün {t} → {per_slot} video")
 
         self.notifier.system_started("Ankara")
         self.log.info("Daemon modu başlatıldı. Ctrl+C ile dur.")

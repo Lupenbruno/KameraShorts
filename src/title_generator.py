@@ -1,5 +1,6 @@
 """Generates YouTube titles like '3/5/2026 15:00 - TEM Otoyolu - Ankara Otobüsü'"""
 from datetime import datetime
+from src.multilingual_titles import ankara_localizations
 
 WEEKDAYS_TR = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 
@@ -47,10 +48,14 @@ class TitleGenerator:
             location.split(",")[0].lower(), weekday.lower()
         ]
 
+        # Çok dilli başlık/açıklama
+        localizations = ankara_localizations(location, capture_time)
+
         return {
             "title": title,
             "description": description,
             "tags": tags[:15],
             "category_id": "22",
             "privacy_status": "public",
+            "localizations": localizations,
         }

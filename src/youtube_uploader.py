@@ -13,6 +13,7 @@ class YouTubeUploader:
         self.client_secret_path = yt["client_secret_path"]
         self.token_path = yt["token_path"]
         self.daily_limit = yt.get("daily_quota_limit", 6)
+        self.playlist_id = yt.get("playlist_id")
         self.queue_path = config["paths"]["queue_path"]
         self.log_path = config["paths"]["log_path"]
         self.service = None
@@ -23,7 +24,7 @@ class YouTubeUploader:
         from google.auth.transport.requests import Request
         import json
 
-        scopes = ["https://www.googleapis.com/auth/youtube.upload"]
+        scopes = ["https://www.googleapis.com/auth/youtube.force-ssl"]
         creds = None
 
         if Path(self.token_path).exists():
@@ -47,6 +48,12 @@ class YouTubeUploader:
         if not self.check_quota():
             raise RuntimeError("Gunluk YouTube kotasi doldu (6 video)")
 
+        # Eşzamanlı upload çakışmasını önle — rastgele 0-60 sn bekle
+        import random as _random
+        _delay = _random.randint(0, 60)
+        if _delay > 0:
+            import time as _t2; _t2.sleep(_delay)
+
         if self.service is None:
             self.authenticate()
 
@@ -58,6 +65,7 @@ class YouTubeUploader:
                 "description": metadata["description"],
                 "tags": metadata.get("tags", []),
                 "categoryId": metadata.get("category_id", "22"),
+                "defaultLanguage": "tr",
             },
             "status": {
                 "privacyStatus": metadata.get("privacy_status", "public"),
@@ -69,13 +77,45 @@ class YouTubeUploader:
         request = self.service.videos().insert(part="snippet,status", body=body, media_body=media)
 
         response = None
+        retries = 0
         while response is None:
-            _, response = request.next_chunk()
+            try:
+                _, response = request.next_chunk()
+            except Exception as e:
+                retries += 1
+                if retries > 5:
+                    raise RuntimeError(f"YouTube upload 5 denemede basarisiz: {e}")
+                log.warning(f"Upload chunk hatasi ({retries}/5): {e}, yeniden deneniyor...")
+                import time as _t; _t.sleep(3)
 
         video_id = response["id"]
         url = f"https://youtube.com/watch?v={video_id}"
         self._log_upload(video_id, metadata["title"])
         log.info(f"YouTube'a yuklendi: {url}")
+
+        # MediaFileUpload handle'ını kapat (Windows dosya kilidi için)
+        try:
+            media._fd.close()
+        except Exception:
+            pass
+
+        # Çok dilli başlık/açıklama ekle
+        localizations = metadata.get("localizations")
+        if localizations:
+            try:
+                self._set_localizations(video_id, localizations)
+                log.info(f"Lokalizasyonlar eklendi: {list(localizations.keys())}")
+            except Exception as e:
+                log.warning(f"Lokalizasyon eklenemedi: {e}")
+
+        # Playlist'e ekle
+        playlist_id = metadata.get("playlist_id") or self.playlist_id
+        if playlist_id:
+            try:
+                self._add_to_playlist(video_id, playlist_id)
+                log.info(f"Playlist'e eklendi: {playlist_id}")
+            except Exception as e:
+                log.warning(f"Playlist eklenemedi: {e}")
 
         # Yükleme başarılı — lokal dosyayı ve meta.json'ı sil
         import time as _time
@@ -111,7 +151,12 @@ class YouTubeUploader:
         Path(self.queue_path).parent.mkdir(parents=True, exist_ok=True)
         queue = []
         if Path(self.queue_path).exists():
-            queue = json.loads(Path(self.queue_path).read_text())
+            try:
+                text = Path(self.queue_path).read_text(encoding="utf-8").strip()
+                if text:
+                    queue = json.loads(text)
+            except Exception:
+                queue = []
         queue.append({"video_path": video_path, "metadata": metadata})
         Path(self.queue_path).write_text(json.dumps(queue, indent=2, ensure_ascii=False))
 
@@ -126,6 +171,53 @@ class YouTubeUploader:
             else:
                 remaining.append(item)
         Path(self.queue_path).write_text(json.dumps(remaining, indent=2, ensure_ascii=False))
+
+    def _add_to_playlist(self, video_id: str, playlist_id: str):
+        """Videoyu belirtilen playlist'e ekle."""
+        if self.service is None:
+            self.authenticate()
+        self.service.playlistItems().insert(
+            part="snippet",
+            body={
+                "snippet": {
+                    "playlistId": playlist_id,
+                    "resourceId": {
+                        "kind": "youtube#video",
+                        "videoId": video_id,
+                    }
+                }
+            }
+        ).execute()
+
+    def _set_localizations(self, video_id: str, localizations: dict):
+        """YouTube lokalizasyon API'siyle video başlık/açıklamalarını dil bazında güncelle.
+
+        localizations: {"tr": {"title": "...", "description": "..."}, "en": {...}, ...}
+        """
+        if self.service is None:
+            self.authenticate()
+
+        # YouTube API lokalizasyon formatı: {"tr": {"title": "...", "description": "..."}}
+        loc_body = {}
+        for lang, data in localizations.items():
+            if lang == "tr":
+                continue   # Default snippet zaten Türkçe
+            loc_body[lang] = {
+                "title": data.get("title", "")[:100],
+                "description": data.get("description", "")[:5000],
+            }
+
+        if not loc_body:
+            return
+
+        body = {
+            "id": video_id,
+            "localizations": loc_body,
+        }
+        self.service.videos().update(
+            part="localizations",
+            body=body,
+        ).execute()
 
     def _log_upload(self, video_id: str, title: str):
         Path(self.log_path).parent.mkdir(parents=True, exist_ok=True)

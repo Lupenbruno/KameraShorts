@@ -1,7 +1,6 @@
-"""İstanbul kameraları için başlık ve metadata üretir."""
+"""Generic başlık ve metadata üretici — herhangi bir Türk şehri kamera pipeline'ı için."""
 from datetime import datetime
 from src.multilingual_titles import city_localizations
-
 
 SAAT_TR = {
     0: "gece yarısı", 1: "gece 01:00", 2: "gece 02:00", 3: "gece 03:00",
@@ -13,20 +12,21 @@ SAAT_TR = {
     22: "gece 22:00", 23: "gece 23:00",
 }
 
-TAGS_BASE = [
-    "İstanbul",
-    "canlı kamera",
-    "İstanbul kamera",
-    "İstanbul manzara",
-    "canlı yayın",
-    "İBB",
-    "istanbul live",
-    "turkey",
-    "istanbul 4k",
-]
+# config.yaml şehir anahtarı → multilingual_titles CITY_NAMES anahtarı
+CITY_KEY_MAP = {
+    "corum":    "Çorum",
+    "konya":    "Konya",
+    "istanbul": "İstanbul",
+    "ankara":   "Ankara",
+}
 
 
-class IstanbulTitleGenerator:
+class CityTitleGenerator:
+    def __init__(self, city_name: str, tags_base: list[str], city_key: str = ""):
+        self.city_name = city_name
+        self.tags_base = list(tags_base)
+        self.city_key = city_key   # multilingual için ("corum", "konya", vb.)
+
     def generate(self, camera: dict, now: datetime) -> dict:
         name = camera["name"]
         location = camera["location"]
@@ -38,13 +38,20 @@ class IstanbulTitleGenerator:
         description = (
             f"🎥 {name} — {saat_desc} ({tarih})\n"
             f"📍 {location}\n\n"
-            f"İstanbul Büyükşehir Belediyesi turistik kameralarından canlı görüntü.\n\n"
-            f"#İstanbul #CanlıKamera #{''.join(name.split())} #IBB #Istanbul"
+            f"{self.city_name} şehir kameralarından canlı görüntü.\n\n"
+            f"#{self.city_name} #CanlıKamera #{''.join(name.split())} "
+            f"#{self.city_name}Kamera #turkey #turkiye"
         )
 
-        tags = list(TAGS_BASE) + [name, name.replace(" ", ""), location.split(",")[0].strip()]
+        tags = list(self.tags_base) + [
+            name,
+            name.replace(" ", ""),
+            location.split(",")[0].strip(),
+        ]
 
-        localizations = city_localizations(name, location, "İstanbul", now)
+        # Çok dilli başlık/açıklama
+        city_names_key = CITY_KEY_MAP.get(self.city_key, self.city_name)
+        localizations = city_localizations(name, location, city_names_key, now)
 
         return {
             "title": title,

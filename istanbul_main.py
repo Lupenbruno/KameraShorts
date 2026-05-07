@@ -143,10 +143,14 @@ class IstanbulApp:
             # YouTube'a yükle
             if upload:
                 if self.uploader.check_quota():
-                    result = self.uploader.upload(clip_path, metadata)
-                    self.log.info(f"[{cam_name}] yüklendi: {result['url']}")
-                    self.notifier.video_uploaded(cam_name, metadata["title"], result["url"], "istanbul")
-                    success += 1
+                    try:
+                        result = self.uploader.upload(clip_path, metadata)
+                        self.log.info(f"[{cam_name}] yüklendi: {result['url']}")
+                        self.notifier.video_uploaded(cam_name, metadata["title"], result["url"], "istanbul")
+                        success += 1
+                    except Exception as e:
+                        self.log.error(f"[{cam_name}] YouTube yukleme hatasi: {e}, kuyruğa eklendi")
+                        self.uploader.add_to_queue(clip_path, metadata)
                 else:
                     self.log.warning(f"[{cam_name}] günlük kota doldu, kuyruğa eklendi")
                     self.notifier.quota_warning("istanbul")

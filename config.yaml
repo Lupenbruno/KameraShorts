@@ -2,6 +2,8 @@ schedule:
   # Günde 6 vakit — 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
   times: ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
   clip_duration: 30  # saniye
+  videos_per_slot: 1
+  daily_quota_limit: 6
 
 cameras:
   # YouTube Live yayınları — resmi belediye ve karayolları kanalları
@@ -32,9 +34,10 @@ cameras:
     enabled: true
 
 youtube:
+  playlist_id: "PLONbha2ewi1T8cReTGdqWHIVciq5j0biA"
   client_secret_path: "credentials/client_secret.json"
   token_path: "credentials/token.json"
-  daily_quota_limit: 6
+  daily_quota_limit: 24
   privacy_status: "public"
   category_id: "22"   # People & Blogs — trafik için uygun
   tags:
@@ -47,8 +50,8 @@ youtube:
 
 # Telegram bildirimleri
 telegram:
-  bot_token: ""    # @BotFather'dan alınacak
-  chat_id: ""      # Telegram chat ID
+  bot_token: "8604699041:AAGgyb8fSjY0fBWGcerUhW7On4kZlqZfjo4"
+  chat_id: "8640227849"
 
 ffmpeg_path: "C:\\Users\\arsen\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
 
@@ -62,16 +65,17 @@ paths:
 
 # İstanbul pipeline ayarları
 istanbul:
-  times: ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
+  times: ["06:00", "12:00", "18:00"]
   clip_duration: 180   # 3 dakika
   videos_per_slot: 1
 
 # İstanbul YouTube kanalı (aynı hesap, farklı token/credentials kullanabilirsiniz)
 # Eğer aynı kanalı kullanıyorsanız youtube: bölümüyle aynı olabilir
 istanbul_youtube:
+  playlist_id: "PLONbha2ewi1QYupl2gA6v3Soz_jKbZk8w"
   client_secret_path: "credentials/client_secret.json"
   token_path: "credentials/token.json"
-  daily_quota_limit: 6
+  daily_quota_limit: 3
   privacy_status: "public"
   category_id: "19"   # Travel & Events — İstanbul manzaraları için uygun
   tags:
@@ -81,3 +85,130 @@ istanbul_youtube:
     - "istanbul manzara"
     - "canlı yayın"
     - "ibb"
+
+# -----------------------------------------------------------------------
+# Generic city pipelines — city_main.py --city <key> ile çalıştırılır
+# NOT: Tüm şehirler aynı YouTube hesabını kullanıyor → API kotası ortak
+#      (10.000 birim/gün varsayılan, kota artırımı bekleniyor)
+# -----------------------------------------------------------------------
+cities:
+
+  # --- Çorum (9 kamera, direkt nginx HLS, token/auth yok) ---
+  corum:
+    name: "Çorum"
+    clips_dir: "data/corum_clips"
+    log_path: "logs/corum_pipeline.log"
+    queue_path: "data/queue/corum_upload_queue.json"
+    clip_duration: 180   # 3 dakika
+    videos_per_slot: 1
+    vertical: false      # landscape 1280x720
+    times: ["09:00", "15:00", "21:00"]
+    youtube:
+      playlist_id: "PLONbha2ewi1SoNeZ-1pPXLMdHTnf7bkaL"
+      client_secret_path: "credentials/client_secret.json"
+      token_path: "credentials/token.json"
+      daily_quota_limit: 3
+      privacy_status: "public"
+      category_id: "19"
+      tags:
+        - "Çorum"
+        - "canlı kamera"
+        - "çorum kamera"
+        - "tarihi çorum"
+        - "turkey"
+        - "turkiye"
+    cameras:
+      - id: "corum_gazicaddesi"
+        name: "Gazi Caddesi"
+        location: "Gazi Caddesi, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/gazicaddesi.stream/playlist.m3u8"
+      - id: "corum_inonucaddesi"
+        name: "İnönü Caddesi"
+        location: "İnönü Caddesi, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/inonucaddesi.stream/playlist.m3u8"
+      - id: "corum_arasta"
+        name: "Arasta Çarşısı"
+        location: "Arasta Çarşısı, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/arasta.stream/playlist.m3u8"
+      - id: "corum_aksemseddin"
+        name: "Akşemseddin Camii"
+        location: "Akşemseddin Camii, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/aksemseddincami.stream/playlist.m3u8"
+      - id: "corum_kentmeydani"
+        name: "Kent Meydanı"
+        location: "Kent Meydanı, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/kentmeydani.stream/playlist.m3u8"
+      - id: "corum_abidekavsagi"
+        name: "Abide Kavşağı"
+        location: "Abide Kavşağı, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/abide-kavsagi.stream/playlist.m3u8"
+      - id: "corum_tarihimeydan"
+        name: "Tarihi Meydan"
+        location: "Tarihi Meydan, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/tarihi-meydan.stream/playlist.m3u8"
+      - id: "corum_milletbahcesi"
+        name: "Millet Bahçesi"
+        location: "Millet Bahçesi, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/milletbahcesi.stream/playlist.m3u8"
+      - id: "corum_milletpanoramik"
+        name: "Millet Bahçesi Panoramik"
+        location: "Millet Bahçesi, Çorum"
+        stream_url: "https://mobilharita.corum.bel.tr/live/milletbahcesipanoramik.stream/playlist.m3u8"
+
+  # --- Konya (8 kamera, Ant Media Server → OVH S3 HLS, token yok) ---
+  konya:
+    name: "Konya"
+    clips_dir: "data/konya_clips"
+    log_path: "logs/konya_pipeline.log"
+    queue_path: "data/queue/konya_upload_queue.json"
+    clip_duration: 180   # 3 dakika
+    videos_per_slot: 1
+    vertical: false      # landscape 1280x720
+    times: ["06:00", "12:00", "18:00"]
+    youtube:
+      playlist_id: "PLONbha2ewi1Rofca5JotriW8yrSWy-3jE"
+      client_secret_path: "credentials/client_secret.json"
+      token_path: "credentials/token.json"
+      daily_quota_limit: 3
+      privacy_status: "public"
+      category_id: "19"
+      tags:
+        - "Konya"
+        - "canlı kamera"
+        - "konya kamera"
+        - "mevlana"
+        - "turkey"
+        - "turkiye"
+    cameras:
+      - id: "konya_serafettincamii"
+        name: "Şerafettin Camii"
+        location: "Şerafettin Camii, Selçuklu, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/serafettin_camii.m3u8"
+      - id: "konya_mevlanameydani"
+        name: "Mevlana Meydanı"
+        location: "Mevlana Müzesi Meydanı, Karatay, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/mevlana_meydani.m3u8"
+      - id: "konya_zaferhavuz"
+        name: "Zafer Meydanı Havuz"
+        location: "Zafer Meydanı, Selçuklu, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/zafer_meydani_havuz.m3u8"
+      - id: "konya_turbeonu"
+        name: "Türbe Önü"
+        location: "Mevlana Türbesi Önü, Karatay, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/turbe_onu.m3u8"
+      - id: "konya_alaeddincamii"
+        name: "Alaeddin Camii"
+        location: "Alaeddin Tepesi, Selçuklu, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/alaeddin_camii.m3u8"
+      - id: "konya_zaferyuruyus"
+        name: "Zafer Yürüyüş Yolu"
+        location: "Zafer Yürüyüş Yolu, Selçuklu, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/zafer_yuruyus_yolu.m3u8"
+      - id: "konya_milletbahcesi"
+        name: "Millet Bahçesi"
+        location: "Millet Bahçesi, Selçuklu, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/millet_bahcesi.m3u8"
+      - id: "konya_hayvanbakim"
+        name: "Hayvan Bakımevi"
+        location: "Hayvan Bakımevi, Konya"
+        stream_url: "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/hayvan_bakimevi_1.m3u8"
