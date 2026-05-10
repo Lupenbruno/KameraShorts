@@ -7,7 +7,6 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 

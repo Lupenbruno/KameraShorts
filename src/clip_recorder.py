@@ -6,6 +6,7 @@ import time
 import requests
 from datetime import datetime
 from pathlib import Path
+from src.ai_filter import is_interesting
 
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
@@ -72,12 +73,8 @@ class ClipRecorder:
                         print(f"  Donuk video, atlanıyor: {plate}")
                         out_path.unlink(missing_ok=True)
                         return None
-                    if self._is_boring(str(out_path)):
-                        print(f"  Tekdüze görüntü (yol/tavan), atlanıyor: {plate}")
-                        out_path.unlink(missing_ok=True)
-                        return None
-                    if self._is_blurry(str(out_path)):
-                        print(f"  Bulanık/yağmurlu lens, atlanıyor: {plate}")
+                    if not is_interesting(str(out_path), self.ffmpeg, self.duration):
+                        print(f"  AI: ilgisiz sahne, atlanıyor: {plate}")
                         out_path.unlink(missing_ok=True)
                         return None
                     return str(out_path)
