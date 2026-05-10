@@ -843,5 +843,30 @@ def api_logs(pipeline):
 
 
 if __name__ == "__main__":
+    # Telegram bot başlat
+    try:
+        cfg = _cfg()
+        tg = cfg.get("telegram", {})
+        token = tg.get("bot_token", "")
+        chat_id = tg.get("chat_id", "")
+        if token and chat_id:
+            from src.telegram_notifier import init_notifier
+            notifier = init_notifier(
+                token=token,
+                chat_id=chat_id,
+                log_paths={
+                    "ankara":   LOG_A,
+                    "istanbul": LOG_I,
+                    "corum":    LOG_C,
+                    "konya":    LOG_K,
+                },
+                pipelines_ref=_daemons,
+            )
+            notifier.start()
+            notifier.notify_start()
+            print("Telegram bot aktif")
+    except Exception as e:
+        print(f"Telegram başlatılamadı: {e}")
+
     print("AsfaltTV -> http://localhost:5000")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

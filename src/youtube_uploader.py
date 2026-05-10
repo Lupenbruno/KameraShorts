@@ -93,6 +93,17 @@ class YouTubeUploader:
         self._log_upload(video_id, metadata["title"])
         log.info(f"YouTube'a yuklendi: {url}")
 
+        # Telegram bildirimi
+        try:
+            from src.telegram_notifier import get_notifier
+            notifier = get_notifier()
+            if notifier:
+                thumb = str(Path(video_path).with_suffix(".jpg"))
+                city = metadata.get("city", "")
+                notifier.notify_upload(city, metadata["title"], url, thumb)
+        except Exception:
+            pass
+
         # MediaFileUpload handle'ını kapat (Windows dosya kilidi için)
         try:
             media._fd.close()

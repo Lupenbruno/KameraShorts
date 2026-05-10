@@ -123,6 +123,7 @@ class CityApp:
                 continue
 
             metadata = self.titler.generate(camera, now)
+            metadata["city"] = self.city_name
             self.log.info(f"[{cam_name}] başlık: {metadata['title']}")
 
             tts_text = (

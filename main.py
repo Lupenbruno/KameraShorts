@@ -104,6 +104,7 @@ class KameraShortsApp:
             self.log.info(f"[{plate}] konum: {location}")
 
             metadata = self.titler.generate(vehicle, location, now)
+            metadata["city"] = "Ankara"
             self.log.info(f"[{plate}] baslik: {metadata['title']}")
 
             tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
@@ -159,6 +160,7 @@ class KameraShortsApp:
 
             # Metadata oluştur
             metadata = self.titler.generate(vehicle, location, now)
+            metadata["city"] = "Ankara"
             self.log.info(f"[{plate}] başlık: {metadata['title']}")
 
             # Ambient + TTS ses ekle
