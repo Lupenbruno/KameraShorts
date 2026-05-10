@@ -108,6 +108,15 @@ class YouTubeUploader:
             except Exception as e:
                 log.warning(f"Lokalizasyon eklenemedi: {e}")
 
+        # Thumbnail yükle
+        thumb_path = Path(video_path).with_suffix(".jpg")
+        if thumb_path.exists():
+            try:
+                self._set_thumbnail(video_id, str(thumb_path))
+                log.info(f"Thumbnail yuklendi: {thumb_path.name}")
+            except Exception as e:
+                log.warning(f"Thumbnail yuklenemedi: {e}")
+
         # Playlist'e ekle
         playlist_id = metadata.get("playlist_id") or self.playlist_id
         if playlist_id:
@@ -117,17 +126,20 @@ class YouTubeUploader:
             except Exception as e:
                 log.warning(f"Playlist eklenemedi: {e}")
 
-        # Yükleme başarılı — lokal dosyayı ve meta.json'ı sil
+        # Yükleme başarılı — lokal dosyayı, thumbnail'i ve meta.json'ı sil
         import time as _time
         for attempt in range(5):
             try:
                 p = Path(video_path)
                 meta = p.with_suffix(".meta.json")
+                thumb = p.with_suffix(".jpg")
                 if p.exists():
                     p.unlink()
                     log.info(f"Lokal klip silindi: {p.name}")
                 if meta.exists():
                     meta.unlink()
+                if thumb.exists():
+                    thumb.unlink()
                 break
             except Exception as e:
                 if attempt < 4:
@@ -171,6 +183,21 @@ class YouTubeUploader:
             else:
                 remaining.append(item)
         Path(self.queue_path).write_text(json.dumps(remaining, indent=2, ensure_ascii=False))
+
+    def _set_thumbnail(self, video_id: str, thumb_path: str):
+        """Video için özel thumbnail yükle."""
+        if self.service is None:
+            self.authenticate()
+        from googleapiclient.http import MediaFileUpload
+        media = MediaFileUpload(thumb_path, mimetype="image/jpeg")
+        self.service.thumbnails().set(
+            videoId=video_id,
+            media_body=media
+        ).execute()
+        try:
+            media._fd.close()
+        except Exception:
+            pass
 
     def _add_to_playlist(self, video_id: str, playlist_id: str):
         """Videoyu belirtilen playlist'e ekle."""

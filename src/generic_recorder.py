@@ -54,6 +54,8 @@ class GenericRecorder:
                         print(f"  [{cam_id}] Donuk video, atlanıyor")
                         out_path.unlink(missing_ok=True)
                         return None
+                    # Ortadaki kareyi thumbnail olarak kaydet
+                    self._save_thumbnail(str(out_path))
                     return str(out_path)
             return None
         except subprocess.TimeoutExpired:
@@ -63,6 +65,18 @@ class GenericRecorder:
         except Exception as e:
             print(f"  [{cam_id}] Hata: {e}")
             return None
+
+    def _save_thumbnail(self, video_path: str) -> None:
+        """Videonun ortasından 1280x720 thumbnail çek, .jpg olarak kaydet."""
+        thumb = str(Path(video_path).with_suffix(".jpg"))
+        vf = ("scale=1280:720:force_original_aspect_ratio=decrease,"
+              "pad=1280:720:(ow-iw)/2:(oh-ih)/2")
+        cmd = [self.ffmpeg, "-y", "-ss", str(self.duration // 2),
+               "-i", video_path, "-frames:v", "1", "-q:v", "2", "-vf", vf, thumb]
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
+        except Exception:
+            pass
 
     def _is_frozen(self, video_path: str) -> bool:
         return self._check_bitrate(video_path) or self._check_frames(video_path)

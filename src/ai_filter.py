@@ -101,3 +101,64 @@ def is_interesting(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) 
     score = score_clip(video_path, ffmpeg, duration)
     log.info(f"AI skor: {score} ({'GECTI' if score >= MIN_SCORE else 'ELENDI'})")
     return score >= MIN_SCORE
+
+
+def best_frame(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> str | None:
+    """En yüksek YOLO skoruna sahip kareyi 1280x720 thumbnail olarak kaydet.
+
+    Çıktı: video_path ile aynı dizinde .jpg dosyası.
+    YOLO yoksa ortadaki kare kullanılır.
+    """
+    _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+    thumb_path = str(Path(video_path).with_suffix(".jpg"))
+    vf = ("scale=1280:720:force_original_aspect_ratio=decrease,"
+          "pad=1280:720:(ow-iw)/2:(oh-ih)/2")
+
+    step = max(3, duration // 4)
+    timestamps = [step, step * 2, step * 3]
+
+    if not _load_model():
+        # YOLO yoksa ortadaki kareyi al
+        cmd = [ffmpeg, "-y", "-ss", str(duration // 2), "-i", video_path,
+               "-frames:v", "1", "-q:v", "2", "-vf", vf, thumb_path]
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
+        except Exception:
+            return None
+        return thumb_path if Path(thumb_path).exists() else None
+
+    best_score = -1
+    best_t = timestamps[len(timestamps) // 2]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, t in enumerate(timestamps):
+            frame = os.path.join(tmp, f"f{i}.jpg")
+            cmd = [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
+                   "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-1", frame]
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
+            except Exception:
+                continue
+            if not Path(frame).exists():
+                continue
+            score = 0
+            try:
+                results = _model(frame, conf=CONF_THRESH, verbose=False)
+                for r in results:
+                    for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                        score += OBJECT_SCORES.get(int(cls_id), 0)
+            except Exception:
+                pass
+            if score > best_score:
+                best_score = score
+                best_t = t
+
+    # En iyi timestamp'ten tam kaliteli thumbnail çek
+    cmd = [ffmpeg, "-y", "-ss", str(best_t), "-i", video_path,
+           "-frames:v", "1", "-q:v", "2", "-vf", vf, thumb_path]
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
+    except Exception:
+        return None
+    log.info(f"Thumbnail: t={best_t}s, skor={best_score}, {Path(thumb_path).name}")
+    return thumb_path if Path(thumb_path).exists() else None
