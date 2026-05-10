@@ -1,8 +1,11 @@
 """İstanbul IBB turistik kameralarından 3 dakikalık landscape video kaydeder."""
 import subprocess
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
+
+_NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 
 class IstanbulRecorder:
@@ -34,7 +37,7 @@ class IstanbulRecorder:
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, timeout=self.duration + 60)
+            result = subprocess.run(cmd, capture_output=True, timeout=self.duration + 60, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 500_000:  # 500KB minimum
                     if self._is_frozen(str(out_path)):
@@ -75,7 +78,7 @@ class IstanbulRecorder:
                 try:
                     cmd = [self.ffmpeg, "-y", "-ss", str(t), "-i", video_path,
                            "-frames:v", "1", "-q:v", "5", tmp]
-                    subprocess.run(cmd, capture_output=True, timeout=10)
+                    subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
                     if Path(tmp).exists():
                         hashes.append(hashlib.md5(Path(tmp).read_bytes()).hexdigest())
                 finally:

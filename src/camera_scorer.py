@@ -12,10 +12,13 @@ Skor (0-100):
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
+
+_NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 log = logging.getLogger("kamerashorts")
 
@@ -110,7 +113,7 @@ class CameraScorer:
             out_path
         ]
         try:
-            subprocess.run(cmd, capture_output=True, timeout=FRAME_TIMEOUT)
+            subprocess.run(cmd, capture_output=True, timeout=FRAME_TIMEOUT, **_NW)
             return Path(out_path).exists() and Path(out_path).stat().st_size > 500
         except Exception:
             return False

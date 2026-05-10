@@ -3,9 +3,12 @@ import hashlib
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+
+_NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 
 class GenericRecorder:
@@ -44,7 +47,7 @@ class GenericRecorder:
 
         try:
             result = subprocess.run(
-                cmd, capture_output=True, timeout=self.duration + 60
+                cmd, capture_output=True, timeout=self.duration + 60, **_NW
             )
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 500_000:
@@ -84,7 +87,7 @@ class GenericRecorder:
                 try:
                     cmd = [self.ffmpeg, "-y", "-ss", str(t), "-i", video_path,
                            "-frames:v", "1", "-q:v", "5", tmp]
-                    subprocess.run(cmd, capture_output=True, timeout=10)
+                    subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
                     if Path(tmp).exists():
                         hashes.append(
                             hashlib.md5(Path(tmp).read_bytes()).hexdigest()

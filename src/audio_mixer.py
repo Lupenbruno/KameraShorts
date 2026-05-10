@@ -1,9 +1,12 @@
 """Ambient ses + TTS anons ekler."""
 import subprocess
 import shutil
+import sys
 import tempfile
 import os
 from pathlib import Path
+
+_NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 
 class AudioMixer:
@@ -39,7 +42,7 @@ class AudioMixer:
             tts_ok = self._generate_tts(tts_text, tts_wav)
 
             # Video ses kanalı var mı kontrol et
-            probe = subprocess.run([self.ffmpeg, "-i", str(video)], capture_output=True, text=True)
+            probe = subprocess.run([self.ffmpeg, "-i", str(video)], capture_output=True, text=True, **_NW)
             has_audio = "Audio" in probe.stderr
 
             if tts_ok:
@@ -69,7 +72,7 @@ class AudioMixer:
                            "-map", "0:v", "-an",
                            "-c:v", "copy", str(out_path)]
 
-            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            result = subprocess.run(cmd, capture_output=True, timeout=300, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if video.exists():
                     video.unlink()

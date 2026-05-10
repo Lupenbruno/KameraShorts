@@ -1,10 +1,13 @@
 """Captures HLS clips from Ankara bus cameras."""
 import subprocess
 import shutil
+import sys
 import time
 import requests
 from datetime import datetime
 from pathlib import Path
+
+_NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 RELAY_START_URL = "https://seyret.ankara.bel.tr/api/relay/start/{dvr}?provider={provider}"
 
@@ -62,7 +65,7 @@ class ClipRecorder:
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, timeout=90)
+            result = subprocess.run(cmd, capture_output=True, timeout=90, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 100_000:  # 100KB minimum
                     if self._is_frozen(str(out_path)):
@@ -99,7 +102,7 @@ class ClipRecorder:
                 tmp = f.name
             cmd = [self.ffmpeg, "-y", "-ss", str(self.duration // 2),
                    "-i", video_path, "-frames:v", "1", tmp]
-            subprocess.run(cmd, capture_output=True, timeout=10)
+            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
             if not Path(tmp).exists():
                 return False
             png_kb = Path(tmp).stat().st_size / 1024
@@ -123,7 +126,7 @@ class ClipRecorder:
                 "-vf", "edgedetect=low=0.05:high=0.2",
                 tmp
             ]
-            subprocess.run(cmd, capture_output=True, timeout=10)
+            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
             if not Path(tmp).exists():
                 return False
             edge_kb = Path(tmp).stat().st_size / 1024
@@ -154,7 +157,7 @@ class ClipRecorder:
                 try:
                     cmd = [self.ffmpeg, "-y", "-ss", str(t), "-i", video_path,
                            "-frames:v", "1", "-q:v", "5", tmp]
-                    subprocess.run(cmd, capture_output=True, timeout=10)
+                    subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
                     if Path(tmp).exists():
                         hashes.append(hashlib.md5(Path(tmp).read_bytes()).hexdigest())
                 finally:

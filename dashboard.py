@@ -8,6 +8,9 @@ from flask import Flask, jsonify, render_template_string, send_file, request
 
 CONFIG_PATH = Path("config.yaml")
 
+# Windows'ta CMD penceresi açılmasını engelle
+_NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+
 # Log dosyaları
 LOG_A = Path("logs/pipeline.log")
 LOG_I = Path("logs/istanbul_pipeline.log")
@@ -42,7 +45,7 @@ def _start_daemon(key):
         # corum, konya veya gelecekteki şehirler
         cmd = [sys.executable, "city_main.py", "--city", key, "--daemon"]
     _daemons[key] = subprocess.Popen(
-        cmd, cwd=str(Path(__file__).parent)
+        cmd, cwd=str(Path(__file__).parent), **_NW
     )
 
 def _stop_daemon(key):
