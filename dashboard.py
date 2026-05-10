@@ -1,15 +1,19 @@
 """AsfaltTV — Kontrol paneli (Ankara, İstanbul, Çorum, Konya)."""
-import json, subprocess, sys, threading, time
+import json, subprocess, sys, threading, time, base64, functools
 from datetime import datetime, date
 from pathlib import Path
 
 import yaml
-from flask import Flask, jsonify, render_template_string, send_file, request
+from flask import Flask, jsonify, render_template_string, send_file, request, Response
 
 CONFIG_PATH = Path("config.yaml")
 
 # Windows'ta CMD penceresi açılmasını engelle
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+
+# Dashboard şifresi
+DASHBOARD_USER = "asfalt"
+DASHBOARD_PASS = "Agunat77"
 
 # Log dosyaları
 LOG_A = Path("logs/pipeline.log")
@@ -25,6 +29,19 @@ CLIPS_K = Path("data/konya_clips")
 
 app = Flask(__name__)
 _daemons = {"ankara": None, "istanbul": None, "corum": None, "konya": None}
+
+@app.before_request
+def check_auth():
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth[6:]).decode("utf-8")
+            user, pw = decoded.split(":", 1)
+            if user == DASHBOARD_USER and pw == DASHBOARD_PASS:
+                return None
+        except Exception:
+            pass
+    return Response("Giris gerekli", 401, {"WWW-Authenticate": 'Basic realm="AsfaltTV"'})
 
 
 def _cfg():
