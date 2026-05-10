@@ -861,6 +861,8 @@ if __name__ == "__main__":
                     "konya":    LOG_K,
                 },
                 pipelines_ref=_daemons,
+                start_fn=_start_daemon,
+                stop_fn=_stop_daemon,
             )
             notifier.start()
             notifier.notify_start()
