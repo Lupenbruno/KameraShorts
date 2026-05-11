@@ -50,7 +50,7 @@ class GenericRecorder:
 
         try:
             result = subprocess.run(
-                cmd, capture_output=True, timeout=self.duration + 90, **_NW
+                cmd, capture_output=True, timeout=self.duration * 3, **_NW
             )
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 500_000:
