@@ -31,8 +31,8 @@ class IstanbulRecorder:
             "-i", stream_url,
             "-t", str(self.duration),
             "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "23",
+            "-preset", "ultrafast",
+            "-crf", "26",
             "-c:a", "aac",
             "-movflags", "+faststart",
             "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,"
@@ -41,7 +41,7 @@ class IstanbulRecorder:
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, timeout=self.duration * 2, **_NW)
+            result = subprocess.run(cmd, capture_output=True, timeout=self.duration * 5, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 500_000:  # 500KB minimum
                     if self._is_frozen(str(out_path)):
