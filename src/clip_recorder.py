@@ -29,17 +29,30 @@ class ClipRecorder:
         self._session.headers["Referer"] = "https://seyret.ankara.bel.tr/"
 
     def _start_relay(self, vehicle: dict) -> bool:
-        """Relay'i başlat ve m3u8 erişilebilir olana kadar bekle."""
+        """Relay'i başlat ve m3u8 erişilebilir olana kadar bekle.
+
+        Stream zaten canlıysa relay'i tetiklemez (resetlemekten kaçın).
+        """
+        stream_url = vehicle["stream_url"]
         dvr = vehicle.get("dvr_serial_number", "")
         provider = vehicle.get("source", "ego")
+
+        # Önce stream'in zaten canlı olup olmadığını kontrol et
+        try:
+            r = self._session.get(stream_url, timeout=5)
+            if r.status_code == 200 and "#EXTM3U" in r.text:
+                return True  # Zaten canlı, relay'i tetiklemeye gerek yok
+        except Exception:
+            pass
+
+        # Canlı değilse relay'i başlat
         if not dvr:
             return False
         try:
             url = RELAY_START_URL.format(dvr=dvr, provider=provider)
             self._session.post(url, timeout=10)
-            # m3u8 hazır olana kadar bekle (max 15 saniye)
-            stream_url = vehicle["stream_url"]
-            for _ in range(5):
+            # m3u8 hazır olana kadar bekle (max 30 saniye)
+            for _ in range(10):
                 time.sleep(3)
                 try:
                     r = self._session.get(stream_url, timeout=5)
