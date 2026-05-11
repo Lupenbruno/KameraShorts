@@ -115,7 +115,7 @@ function startTest() {
     }
     if (msg.startsWith('__VIDEO_PASS__:') || msg.startsWith('__VIDEO_FAIL__:')) {
       const passed = msg.startsWith('__VIDEO_PASS__:');
-      currentFile = msg.split(':')[1];
+      currentFile = msg.slice(msg.indexOf(':') + 1);
       document.getElementById('player').src = '/yolo-test/video/' + currentFile;
       const h2 = document.querySelector('#video-wrap h2');
       if (passed) {
@@ -218,23 +218,6 @@ def _run(q: queue.Queue):
 
         plate = selected.get("license_plate", "?")
         vtype = (selected.get("vehicle_type") or "?").strip()
-
-        # 3b. CameraScorer — relay açıkken skor al (artık stream erişilebilir)
-        put(f"\n🔍  Kamera Kalite Skoru  (stream canlıyken ölçülüyor)")
-        put("─" * 56)
-        from src.camera_scorer import CameraScorer
-        scorer = CameraScorer(ffmpeg_path=ff)
-        score  = scorer._score_camera(selected, now)
-        bar    = "█" * (score // 10) + "░" * (10 - score // 10)
-        put(f"  Parlaklık + Hareket + Netlik + Saat bonusu")
-        put(f"  [{plate}]  {bar}  {score}/100")
-        if score >= 70:
-            put(f"  ✅  Mükemmel kalite")
-        elif score >= 35:
-            put(f"  ✅  Kabul edilebilir kalite")
-        else:
-            put(f"  ⚠️   Düşük kalite — video yine de kaydedilecek")
-        put("─" * 56)
 
         # 4. Record 20s test clip
         put(f"\n🎥  Klip kaydediliyor  (20 saniye)")
