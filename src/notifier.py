@@ -1,9 +1,14 @@
 """Telegram bildirimleri — her yükleme, hata ve sistem olayı için."""
 import requests
 import logging
+import time
 from datetime import datetime
+from pathlib import Path
 
 log = logging.getLogger("notifier")
+
+_START_COOLDOWN = 3600   # saniye — aynı şehir için min. bu kadar bekle
+_last_started: dict = {}  # city → epoch
 
 
 class TelegramNotifier:
@@ -46,6 +51,11 @@ class TelegramNotifier:
         )
 
     def system_started(self, mode: str):
+        key = mode.lower()
+        now = time.time()
+        if now - _last_started.get(key, 0) < _START_COOLDOWN:
+            return  # 1 saat geçmeden tekrar gönderme
+        _last_started[key] = now
         self._send(
             f"✅ <b>AsfaltTV başlatıldı</b>\n"
             f"Mod: {mode}\n"
