@@ -159,71 +159,57 @@ def _run(q: queue.Queue):
         # 1. Cameras
         put("\n📡  Aktif Ankara kameraları çekiliyor...")
         from src.camera_registry import CameraRegistry
-        cams = CameraRegistry().get_active_cameras(limit=30)
-        put(f"  {len(cams)} aktif kamera bulundu\n")
+        cams = CameraRegistry().get_active_cameras(limit=50)
+        put(f"  {len(cams)} aktif kamera bulundu")
 
-        # 2. Score cameras (CameraScorer — paralel frame analizi)
-        put("🔍  Kamera Kalite Skorlaması  (parlaklık · hareket · netlik · saat)")
-        put("─" * 52)
-        from src.camera_scorer import CameraScorer
-        scorer  = CameraScorer(ffmpeg_path=ff)
-        pool    = cams[:12]
-        scored  = []
+        # 2. Araç tipine göre önceliklendir (otobüsler önce)
+        TYPE_PRIORITY = {"Solo": 0, "Körüklü": 1, "ELK": 2}
+        def _priority(c):
+            vt = (c.get("vehicle_type") or "").strip()
+            return TYPE_PRIORITY.get(vt, 99)
 
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        with ThreadPoolExecutor(max_workers=4) as ex:
-            futs = {ex.submit(scorer._score_camera, c, now): c for c in pool}
-            for fut in as_completed(futs):
-                cam = futs[fut]
-                try:   s = fut.result()
-                except: s = 0
-                plate = cam.get("license_plate", "?")
-                vtype = cam.get("vehicle_type", "") or "?"
-                bar   = "█" * (s // 10) + "░" * (10 - s // 10)
-                put(f"  [{plate:<12}] {bar}  {s:>3}/100   {vtype}")
-                scored.append((s, cam))
+        sorted_cams = sorted(cams, key=_priority)
 
-        scored.sort(key=lambda x: x[0], reverse=True)
-        passed = [(s, c) for s, c in scored if s >= 35]
+        put(f"\n📋  Kamera Listesi  (öncelik: otobüs → iş makinesi)")
+        put("─" * 56)
+        type_counts = {}
+        for c in sorted_cams[:20]:
+            plate = c.get("license_plate", "?")
+            vtype = (c.get("vehicle_type") or "?").strip()
+            grp   = (c.get("group_name") or "")[:30]
+            type_counts[vtype] = type_counts.get(vtype, 0) + 1
+            put(f"  [{plate:<12}]  {vtype:<20}  {grp}")
+        if len(sorted_cams) > 20:
+            put(f"  ... +{len(sorted_cams)-20} kamera daha")
+        put("─" * 56)
+        for vt, cnt in sorted(type_counts.items(), key=lambda x: _priority({"vehicle_type":x[0]})):
+            put(f"  {vt:<22} → {cnt} adet")
 
-        put("─" * 52)
-        if passed:
-            put(f"✅  {len(passed)}/{len(scored)} kamera eşiği geçti (min 35)")
-            best_s, selected = passed[0]
-        else:
-            put("⚠️   Hiçbir kamera eşiği geçemedi → en yüksek skorlu seçiliyor")
-            best_s, selected = scored[0] if scored else (0, cams[0])
+        # 3. Relay dene — ilk çalışan kamerayı seç
+        put(f"\n📡  Relay deneniyor  (sırayla, ilk açılan kazanır)...")
+        from src.clip_recorder import ClipRecorder
+        rec      = ClipRecorder(cfg)
+        selected = None
+        for cam in sorted_cams[:15]:
+            plate = cam.get("license_plate", "?")
+            vtype = (cam.get("vehicle_type") or "?").strip()
+            put(f"  [{plate}]  {vtype}  → deneniyor...")
+            if rec._start_relay(cam):
+                selected = cam
+                put(f"  ✅  [{plate}] stream hazır!")
+                break
+            else:
+                put(f"  ❌  [{plate}] yanıt yok")
+
+        if not selected:
+            put("  ❌  Hiçbir kamera açılamadı. Test sonlandırıldı.")
+            return
 
         plate = selected.get("license_plate", "?")
-        vtype = selected.get("vehicle_type", "") or "?"
-        put(f"🏆  Seçilen: [{plate}]  Skor={best_s}/100  Tür={vtype}")
-
-        # 3. Relay
-        put(f"\n📡  Relay başlatılıyor → [{plate}]")
-        from src.clip_recorder import ClipRecorder
-        rec = ClipRecorder(cfg)
-        ok  = rec._start_relay(selected)
-
-        if ok:
-            put(f"  ✅  Stream hazır: {selected.get('stream_url','')[-50:]}")
-        else:
-            put(f"  ❌  [{plate}] başlatılamadı, diğerleri deneniyor...")
-            ok = False
-            for s, cam in scored[1:6]:
-                p2 = cam.get("license_plate", "?")
-                put(f"     Deneniyor → [{p2}]")
-                if rec._start_relay(cam):
-                    selected = cam
-                    plate    = p2
-                    ok       = True
-                    put(f"  ✅  [{p2}] Stream hazır")
-                    break
-            if not ok:
-                put("  ❌  Hiçbir kamera başlatılamadı. Test sonlandırıldı.")
-                return
+        vtype = (selected.get("vehicle_type") or "?").strip()
 
         # 4. Record 20s test clip
-        put(f"\n🎥  Klip kaydediliyor  (20 saniye, ultrafast)")
+        put(f"\n🎥  Klip kaydediliyor  (20 saniye)")
         put(f"  Araç   : {plate}  [{vtype}]")
         stream_url = selected.get("stream_url", "")
         put(f"  Stream : ...{stream_url[-55:]}")
