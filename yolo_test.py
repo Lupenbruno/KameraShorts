@@ -296,136 +296,115 @@ def _run(q: queue.Queue):
         put(f"  ⏰  {now.strftime('%d/%m/%Y %H:%M:%S')}")
         put("━" * 52)
 
-        # ── 1. Kameralar ──────────────────────────────────────────────────────
+        # ── 1. Kamera listesi ─────────────────────────────────────────────────
         put("\n📡  Aktif Ankara kameraları çekiliyor...")
         from src.camera_registry import CameraRegistry
         cams = CameraRegistry().get_active_cameras()
         put(f"  {len(cams)} aktif kamera")
 
         TYPE_PRIORITY = {"Solo": 0, "Körüklü": 1, "ELK": 2}
-        # Önce türe göre grupla, sonra her grup içinde karıştır
-        solo    = [c for c in cams if (c.get("vehicle_type") or "").strip() == "Solo"]
-        korklu  = [c for c in cams if (c.get("vehicle_type") or "").strip() == "Körüklü"]
-        elk     = [c for c in cams if (c.get("vehicle_type") or "").strip() == "ELK"]
-        diger   = [c for c in cams if (c.get("vehicle_type") or "").strip() not in TYPE_PRIORITY]
+        solo   = [c for c in cams if (c.get("vehicle_type") or "").strip() == "Solo"]
+        korklu = [c for c in cams if (c.get("vehicle_type") or "").strip() == "Körüklü"]
+        elk    = [c for c in cams if (c.get("vehicle_type") or "").strip() == "ELK"]
+        diger  = [c for c in cams if (c.get("vehicle_type") or "").strip() not in TYPE_PRIORITY]
         random.shuffle(solo); random.shuffle(korklu)
         random.shuffle(elk);  random.shuffle(diger)
         sorted_cams = solo + korklu + elk + diger
 
-        put(f"\n📋  İlk 15 Kamera (rastgele karıştırıldı)")
+        put(f"\n📋  {len(sorted_cams)} kamera (Solo→Körüklü→ELK, her grupta karıştırıldı)")
         put("─" * 56)
-        for c in sorted_cams[:15]:
+        for c in sorted_cams[:10]:
             plate = c.get("license_plate", "?")
             vtype = (c.get("vehicle_type") or "?").strip()
-            grp   = (c.get("group_name") or "")[:28]
-            put(f"  [{plate:<12}]  {vtype:<20}  {grp}")
-        if len(sorted_cams) > 15:
-            put(f"  ... +{len(sorted_cams)-15} kamera daha")
+            put(f"  [{plate:<12}]  {vtype}")
+        if len(sorted_cams) > 10:
+            put(f"  ... +{len(sorted_cams)-10} kamera daha")
         put("─" * 56)
 
-        # ── 2. Stream seç ─────────────────────────────────────────────────────
-        put(f"\n📡  Stream deneniyor...")
+        # ── YOLO hazırlık ─────────────────────────────────────────────────────
         from src.clip_recorder import ClipRecorder
-        rec      = ClipRecorder(cfg)
-        selected = None
-        for cam in sorted_cams[:15]:
-            plate = cam.get("license_plate", "?")
-            vtype = (cam.get("vehicle_type") or "?").strip()
-            put(f"  [{plate}]  {vtype}  → deneniyor...")
-            if rec._start_relay(cam):
-                selected = cam
-                put(f"  ✅  [{plate}] stream hazır!")
-                break
-            else:
-                put(f"  ❌  [{plate}] yanıt yok")
-
-        if not selected:
-            put("  ❌  Hiçbir kamera açılamadı.")
-            return
-
-        plate  = selected.get("license_plate", "?")
-        vtype  = (selected.get("vehicle_type") or "?").strip()
-        lat    = float(selected.get("latitude", 39.9334) or 39.9334)
-        lon    = float(selected.get("longitude", 32.8597) or 32.8597)
-
-        # ── 3. Klip kaydet ────────────────────────────────────────────────────
-        put(f"\n🎥  Klip kaydediliyor  (20 saniye)")
-        put(f"  Araç   : {plate}  [{vtype}]")
-        stream_url = selected.get("stream_url", "")
-        put(f"  Stream : ...{stream_url[-55:]}")
-
-        ts       = now.strftime("%Y%m%d_%H%M%S")
-        raw_path = TEST_DIR / f"test_{ts}_raw.mp4"
-
-        with tempfile.TemporaryDirectory() as tmp:
-            segs = rec._download_segments(stream_url, 20, tmp)
-            if not segs:
-                put("  ❌  Segment indirilemedi.")
-                return
-            put(f"  ✅  {len(segs)} segment indirildi")
-
-            concat = os.path.join(tmp, "c.txt")
-            with open(concat, "w") as f:
-                for s in segs: f.write(f"file '{s}'\n")
-
-            vf  = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
-            cmd = [ff, "-y", "-f", "concat", "-safe", "0", "-i", concat,
-                   "-t", "20", "-c:v", "libx264", "-preset", "ultrafast",
-                   "-crf", "26", "-c:a", "aac", "-movflags", "+faststart",
-                   "-vf", vf, str(raw_path)]
-            r = subprocess.run(cmd, capture_output=True, timeout=120, **_NW)
-
-        if r.returncode != 0 or not raw_path.exists():
-            put(f"  ❌  Encode başarısız")
-            return
-
-        sz = raw_path.stat().st_size / 1024 / 1024
-        put(f"  ✅  Ham video: {raw_path.name}  ({sz:.1f} MB)")
-
-        # ── 4. YOLO analizi ───────────────────────────────────────────────────
-        put(f"\n{'═'*52}")
-        put("  🤖  YOLO ANALİZİ")
-        put(f"{'═'*52}")
-
         from src.ai_filter import (_load_model, OBJECT_SCORES, CONF_THRESH,
                                     MIN_SCORE, _VF_YOLO, _brightness, _dynamic_min_score)
+        rec     = ClipRecorder(cfg)
         yolo_ok = _load_model()
 
-        geçti = True
-        total = 0
-        PANEL_FACTOR   = 3   # 5 kare analiz, dinamik eşiği 3x alıyoruz
-        PANEL_MIN_SCORE = MIN_SCORE * PANEL_FACTOR  # başlangıç, ilk kareden güncellenir
+        # ── 2-4. Kamera döngüsü: stream → kayıt → YOLO geçene kadar dene ─────
+        selected        = None
+        raw_path        = None
+        total           = 0
+        PANEL_MIN_SCORE = MIN_SCORE * 3
+        lat, lon        = 39.9334, 32.8597
 
-        if yolo_ok:
+        for cam_idx, cam in enumerate(sorted_cams):
+            plate = cam.get("license_plate", "?")
+            vtype = (cam.get("vehicle_type") or "?").strip()
+            put(f"\n[{cam_idx+1}/{len(sorted_cams)}] ▶ {plate}  {vtype}")
+
+            # Stream kontrol
+            if not rec._start_relay(cam):
+                put(f"  ❌ Stream yok — sonraki")
+                continue
+            put(f"  ✅ Stream hazır")
+
+            # Klip kaydet
+            put(f"  🎥 Kayıt (20s)...")
+            stream_url = cam.get("stream_url", "")
+            ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
+            _rp = TEST_DIR / f"test_{ts}_raw.mp4"
+
+            with tempfile.TemporaryDirectory() as tmp:
+                segs = rec._download_segments(stream_url, 20, tmp)
+                if not segs:
+                    put(f"  ❌ Segment yok — sonraki")
+                    continue
+                concat = os.path.join(tmp, "c.txt")
+                with open(concat, "w") as f:
+                    for s in segs: f.write(f"file '{s}'\n")
+                vf  = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+                cmd = [ff, "-y", "-f", "concat", "-safe", "0", "-i", concat,
+                       "-t", "20", "-c:v", "libx264", "-preset", "ultrafast",
+                       "-crf", "26", "-c:a", "aac", "-movflags", "+faststart",
+                       "-vf", vf, str(_rp)]
+                r = subprocess.run(cmd, capture_output=True, timeout=120, **_NW)
+
+            if r.returncode != 0 or not _rp.exists():
+                put(f"  ❌ Encode başarısız — sonraki")
+                continue
+
+            sz = _rp.stat().st_size / 1024 / 1024
+            put(f"  ✅ Ham: {_rp.name} ({sz:.1f} MB)")
+
+            # YOLO analizi
+            if not yolo_ok:
+                put("  ⚠️  YOLO yok — geçildi")
+                selected, raw_path = cam, _rp
+                break
+
+            put(f"  🤖 YOLO analizi...")
             from src.ai_filter import _model, _sky_bonus
             step       = max(2, 20 // 6)
             timestamps = [step, step*2, step*3, step*4, step*5]
-            sky_pts    = 0
-            first_brightness = 128.0
+            _total     = 0
+            _pmin      = MIN_SCORE * 3
 
             for i, t in enumerate(timestamps):
                 with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as fp_obj:
                     fp = fp_obj.name
                 try:
                     subprocess.run(
-                        [ff, "-y", "-ss", str(t), "-i", str(raw_path),
+                        [ff, "-y", "-ss", str(t), "-i", str(_rp),
                          "-frames:v", "1", "-q:v", "3", "-vf", _VF_YOLO, fp],
                         capture_output=True, timeout=10, **_NW)
-
                     if not Path(fp).exists():
-                        put(f"  Kare {i+1}  t={t}s  → ❌ çekilemedi")
                         continue
-
-                    # İlk kareden parlaklık ölç → dinamik eşik
                     if i == 0:
-                        first_brightness = _brightness(fp)
-                        dyn_min = _dynamic_min_score(first_brightness)
-                        PANEL_MIN_SCORE = dyn_min * PANEL_FACTOR
-                        mode = ("🌙 gece" if first_brightness < 60
-                                else "🌆 alacakaranlık" if first_brightness < 100
-                                else "☀️ gündüz")
-                        put(f"  💡 Parlaklık: {first_brightness:.0f}  →  {mode}  →  eşik: {PANEL_MIN_SCORE}p")
-
+                        bright = _brightness(fp)
+                        dyn    = _dynamic_min_score(bright)
+                        _pmin  = dyn * 3
+                        mode   = ("🌙 gece" if bright < 60
+                                  else "🌆 alacakaranlık" if bright < 100
+                                  else "☀️ gündüz")
+                        put(f"  💡 Parlaklık: {bright:.0f} → {mode} → eşik: {_pmin}p")
                     results = _model(fp, conf=CONF_THRESH, verbose=False)
                     fs, dets = 0, []
                     for res in results:
@@ -437,32 +416,47 @@ def _run(q: queue.Queue):
                             pts    = OBJECT_SCORES.get(cls_id, 0)
                             fs    += pts
                             dets.append(f"{COCO.get(cls_id, f'cls{cls_id}')}({conf:.0%}+{pts}p)")
-
                     if i == 0:
-                        sky_pts = _sky_bonus(fp)
-                        if sky_pts:
-                            dets.append(f"🌤️ gökyüzü(+{sky_pts}p)")
-                            fs += sky_pts
-
-                    total += fs
-                    icon   = "✅" if fs >= 1 else "❌"
-                    put(f"  Kare {i+1}  t={t:>2}s  {icon}  {', '.join(dets) or '— tespit yok':<55}  +{fs}p")
+                        sky = _sky_bonus(fp)
+                        if sky:
+                            dets.append(f"🌤️ gökyüzü(+{sky}p)")
+                            fs += sky
+                    _total += fs
+                    icon = "✅" if fs >= 1 else "❌"
+                    put(f"    Kare {i+1} t={t:>2}s {icon} {', '.join(dets) or '— tespit yok'}  +{fs}p")
                 finally:
                     try: os.unlink(fp)
                     except: pass
 
-            geçti = total >= PANEL_MIN_SCORE
-            put(f"\n  TOPLAM SKOR : {total} puan  (eşik: {PANEL_MIN_SCORE})")
-            put(f"  KARAR: {'✅ GEÇTİ — pipeline yükler' if geçti else '❌ ELENDİ — kalite yetersiz'}")
+            _geçti = _total >= _pmin
+            put(f"  SKOR: {_total}p (eşik:{_pmin}) → {'✅ GEÇTİ' if _geçti else '❌ ELENDİ — sonraki kamera'}")
+
+            if not _geçti:
+                try: _rp.unlink()
+                except: pass
+                continue
+
+            # ✅ Bu kamera geçti
+            selected        = cam
+            raw_path        = _rp
+            total           = _total
+            PANEL_MIN_SCORE = _pmin
+            lat  = float(cam.get("latitude",  39.9334) or 39.9334)
+            lon  = float(cam.get("longitude", 32.8597) or 32.8597)
+            break
+
+        # Hiçbiri geçemediyse
+        if not selected or not raw_path:
+            put(f"\n{'═'*52}")
+            put("  ❌  Tüm kameralar denendi — uygun klip bulunamadı.")
             put(f"{'═'*52}")
-        else:
-            put("⚠️  YOLO yüklü değil — geçildi")
-
-        # Ham videoyu panele gönder (geçti / elendi etiketi)
-        q.put(f"__RAW_PASS__:{raw_path.name}" if geçti else f"__RAW_FAIL__:{raw_path.name}")
-
-        if not geçti:
             return
+
+        plate = selected.get("license_plate", "?")
+        put(f"\n{'═'*52}")
+        put(f"  ✅  [{plate}] seçildi — pipeline devam ediyor")
+        put(f"{'═'*52}")
+        q.put(f"__RAW_PASS__:{raw_path.name}")
 
         # ── 5. Geocoder ───────────────────────────────────────────────────────
         put(f"\n📍  Konum belirleniyor...  ({lat:.4f}, {lon:.4f})")
@@ -484,7 +478,7 @@ def _run(q: queue.Queue):
                 if weather:
                     put(f"  🌤️ Hava: {weather['emoji']} {weather['temp']}°C — {weather['condition']}")
                 else:
-                    put("  ⚠️  OWM yanıt vermedi (key henüz aktif değil?)")
+                    put("  ⚠️  OWM yanıt vermedi")
             except Exception as e:
                 put(f"  ⚠️  Hava hatası: {e}")
         else:
@@ -498,7 +492,6 @@ def _run(q: queue.Queue):
         metadata["city"] = "Ankara"
         put(f"  🎬 Başlık: {metadata['title']}")
 
-        # TTS metni
         GUNLER = ["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"]
         AYLAR  = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran",
                   "Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"]
@@ -509,7 +502,6 @@ def _run(q: queue.Queue):
 
         # ── 8. TTS + Overlay ─────────────────────────────────────────────────
         put(f"\n🔊  Ses ve overlay ekleniyor...")
-        # YOLO tespitlerini TTS'e ekle
         from src.ai_filter import describe_clip
         yolo_desc = describe_clip(str(raw_path), ff, 20)
         if yolo_desc:
@@ -518,26 +510,24 @@ def _run(q: queue.Queue):
         speed = selected.get("speed", 0)
         if speed:
             tts_text += f" Otobüs {speed} kilometre hızla ilerliyor."
-        put(f"  TTS: \"{tts_text[:100]}...\"" if len(tts_text) > 100 else f"  TTS: \"{tts_text}\"")
+        metadata["tts_text"] = tts_text
+        put(f"  TTS: \"{tts_text[:110]}...\"" if len(tts_text) > 110 else f"  TTS: \"{tts_text}\"")
         if weather:
             put(f"  Overlay: Ankara  |  {weather['condition']}  {weather['temp']}C")
 
-        final_path = TEST_DIR / f"test_{ts}_final.mp4"
+        final_path     = TEST_DIR / f"test_{ts}_final.mp4"
         import shutil as _sh
         _sh.copy(str(raw_path), str(final_path))
-
         from src.audio_mixer import AudioMixer
-        mixer      = AudioMixer(cfg)
+        mixer          = AudioMixer(cfg)
         final_path_str = mixer.add_audio(str(final_path), metadata, location, weather=weather)
-        final_name = Path(final_path_str).name
-
+        final_name     = Path(final_path_str).name
         sz2 = Path(final_path_str).stat().st_size / 1024 / 1024
         put(f"  ✅  Final video: {final_name}  ({sz2:.1f} MB)")
 
         # ── 9. Sonuçları gönder ───────────────────────────────────────────────
         q.put(f"__FINAL__:{final_name}")
 
-        # Metadata JSON
         import json as _json
         meta_payload = {
             "title":       metadata.get("title", ""),
