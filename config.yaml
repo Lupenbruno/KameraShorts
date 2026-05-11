@@ -99,7 +99,7 @@ cities:
     clips_dir: "data/corum_clips"
     log_path: "logs/corum_pipeline.log"
     queue_path: "data/queue/corum_upload_queue.json"
-    clip_duration: 180   # 3 dakika
+    clip_duration: 60   # 1 dakika (sunucu yavaş, 180s → 6dk bekleme)
     videos_per_slot: 1
     vertical: false      # landscape 1280x720
     times: ["09:00", "15:00", "21:00"]
@@ -161,7 +161,7 @@ cities:
     clips_dir: "data/konya_clips"
     log_path: "logs/konya_pipeline.log"
     queue_path: "data/queue/konya_upload_queue.json"
-    clip_duration: 180   # 3 dakika
+    clip_duration: 60   # 1 dakika (OVH S3 sunucu yavaş)
     videos_per_slot: 1
     vertical: false      # landscape 1280x720
     times: ["06:00", "12:00", "18:00"]
