@@ -99,6 +99,109 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
     return total
 
 
+# Türkçe nesne açıklamaları (TTS için)
+_TR_NAMES = {
+    0:  ("kişi",    "kişi"),
+    1:  ("bisiklet","bisiklet"),
+    2:  ("araç",    "araç"),
+    3:  ("motosiklet", "motosiklet"),
+    5:  ("otobüs",  "otobüs"),
+    7:  ("kamyon",  "kamyon"),
+    9:  ("trafik lambası", "trafik lambası"),
+    11: ("dur tabelası",  "dur tabelası"),
+    13: ("bank",    "bank"),
+}
+
+
+def describe_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> str:
+    """Klipteki nesneleri say, Türkçe cümle döndür.
+
+    Örnek: "3 araç, 2 kişi ve 1 otobüs görüntülendi."
+    YOLO yoksa "" döner.
+    """
+    if not _load_model():
+        return ""
+
+    _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+    step = max(2, duration // 6)
+    timestamps = [step, step * 2, step * 3]   # 3 kare yeterli
+    counts: dict[int, int] = {}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, t in enumerate(timestamps):
+            frame = os.path.join(tmp, f"f{i}.jpg")
+            try:
+                subprocess.run(
+                    [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
+                     "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-1", frame],
+                    capture_output=True, timeout=10, **_NW
+                )
+            except Exception:
+                continue
+            if not Path(frame).exists():
+                continue
+            try:
+                results = _model(frame, conf=CONF_THRESH, verbose=False)
+                for r in results:
+                    for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                        cls_id = int(cls_id)
+                        if cls_id in _TR_NAMES:
+                            counts[cls_id] = max(counts.get(cls_id, 0), 1)
+                            counts[cls_id] += 0   # sadece varlık, tekrar sayma
+            except Exception:
+                pass
+
+    # Maksimum sayıyı bulmak için tüm karelerdeki en yüksek değeri al
+    # (yukarıdaki döngü her karede en az 1 sayıyor, tekrar çalıştır)
+    counts = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, t in enumerate(timestamps):
+            frame = os.path.join(tmp, f"f{i}.jpg")
+            try:
+                subprocess.run(
+                    [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
+                     "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-1", frame],
+                    capture_output=True, timeout=10, **_NW
+                )
+            except Exception:
+                continue
+            if not Path(frame).exists():
+                continue
+            try:
+                frame_counts: dict[int, int] = {}
+                results = _model(frame, conf=CONF_THRESH, verbose=False)
+                for r in results:
+                    for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                        cls_id = int(cls_id)
+                        if cls_id in _TR_NAMES:
+                            frame_counts[cls_id] = frame_counts.get(cls_id, 0) + 1
+                for cls_id, cnt in frame_counts.items():
+                    counts[cls_id] = max(counts.get(cls_id, 0), cnt)
+            except Exception:
+                pass
+
+    if not counts:
+        return ""
+
+    # Öncelik sırası: otobüs > araç > kamyon > kişi > diğer
+    priority = [5, 2, 7, 0, 3, 1, 9, 11, 13]
+    parts = []
+    for cls_id in priority:
+        if cls_id not in counts:
+            continue
+        cnt = counts[cls_id]
+        singular, plural = _TR_NAMES[cls_id]
+        word = plural if cnt > 1 else singular
+        parts.append(f"{cnt} {word}")
+
+    if not parts:
+        return ""
+
+    if len(parts) == 1:
+        return f"{parts[0]} görüntülendi."
+    return ", ".join(parts[:-1]) + f" ve {parts[-1]} görüntülendi."
+
+
 def _sky_bonus(frame_path: str) -> int:
     """Üst 1/3'te gökyüzü var mı?
 

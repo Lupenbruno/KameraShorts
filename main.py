@@ -24,6 +24,7 @@ from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
 from src.weather import get_weather
+from src.ai_filter import describe_clip
 
 USED_PLATES_FILE = Path("data/ankara_used_plates.json")
 
@@ -112,7 +113,14 @@ class KameraShortsApp:
             metadata["city"] = "Ankara"
             self.log.info(f"[{plate}] baslik: {metadata['title']}")
 
-            tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+            speed  = vehicle.get("speed", 0)
+            vtype  = metadata.get("title", "").split()[0] if metadata else ""
+            yolo_desc = describe_clip(clip_path, self.ffmpeg if hasattr(self, "ffmpeg") else "ffmpeg", self.config["schedule"]["clip_duration"])
+            tts_text = (
+                f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+                f" Otobüs {speed} kilometre hızla ilerliyor."
+                + (f" {yolo_desc}" if yolo_desc else "")
+            )
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, location, weather=weather)
             self.log.info(f"[{plate}] ses eklendi")
@@ -174,7 +182,13 @@ class KameraShortsApp:
             self.log.info(f"[{plate}] başlık: {metadata['title']}")
 
             # Ambient + TTS ses ekle
-            tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+            speed     = vehicle.get("speed", 0)
+            yolo_desc = describe_clip(clip_path, self.ffmpeg if hasattr(self, "ffmpeg") else "ffmpeg", self.config["schedule"]["clip_duration"])
+            tts_text  = (
+                f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+                f" Otobüs {speed} kilometre hızla ilerliyor."
+                + (f" {yolo_desc}" if yolo_desc else "")
+            )
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, location, weather=weather)
             self.log.info(f"[{plate}] ses eklendi")

@@ -476,7 +476,16 @@ def _run(q: queue.Queue):
 
         # ── 8. TTS + Overlay ─────────────────────────────────────────────────
         put(f"\n🔊  Ses ve overlay ekleniyor...")
-        put(f"  TTS: \"{tts_text[:80]}...\"" if len(tts_text) > 80 else f"  TTS: \"{tts_text}\"")
+        # YOLO tespitlerini TTS'e ekle
+        from src.ai_filter import describe_clip
+        yolo_desc = describe_clip(str(raw_path), ff, 20)
+        if yolo_desc:
+            tts_text += f" {yolo_desc}"
+            put(f"  🤖 YOLO TTS: {yolo_desc}")
+        speed = selected.get("speed", 0)
+        if speed:
+            tts_text += f" Otobüs {speed} kilometre hızla ilerliyor."
+        put(f"  TTS: \"{tts_text[:100]}...\"" if len(tts_text) > 100 else f"  TTS: \"{tts_text}\"")
         if weather:
             put(f"  Overlay: Ankara  |  {weather['condition']}  {weather['temp']}C")
 
