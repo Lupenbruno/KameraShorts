@@ -170,7 +170,7 @@ def _run(q: queue.Queue):
         # 1. Cameras
         put("\n📡  Aktif Ankara kameraları çekiliyor...")
         from src.camera_registry import CameraRegistry
-        cams = CameraRegistry().get_active_cameras(limit=50)
+        cams = CameraRegistry().get_active_cameras()
         put(f"  {len(cams)} aktif kamera bulundu")
 
         # 2. Araç tipine göre önceliklendir (otobüsler önce)
