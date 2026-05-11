@@ -2,8 +2,8 @@ schedule:
   # Günde 6 vakit — 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
   times: ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
   clip_duration: 30  # saniye
-  videos_per_slot: 1
-  daily_quota_limit: 6
+  videos_per_slot: 4
+  daily_quota_limit: 24
 
 cameras:
   # YouTube Live yayınları — resmi belediye ve karayolları kanalları
@@ -37,7 +37,7 @@ youtube:
   playlist_id: "PLONbha2ewi1T8cReTGdqWHIVciq5j0biA"
   client_secret_path: "credentials/client_secret.json"
   token_path: "credentials/token.json"
-  daily_quota_limit: 24
+  daily_quota_limit: 30
   privacy_status: "public"
   category_id: "22"   # People & Blogs — trafik için uygun
   tags:
@@ -107,7 +107,7 @@ cities:
       playlist_id: "PLONbha2ewi1SoNeZ-1pPXLMdHTnf7bkaL"
       client_secret_path: "credentials/client_secret.json"
       token_path: "credentials/token.json"
-      daily_quota_limit: 3
+      daily_quota_limit: 10
       privacy_status: "public"
       category_id: "19"
       tags:
@@ -169,7 +169,7 @@ cities:
       playlist_id: "PLONbha2ewi1Rofca5JotriW8yrSWy-3jE"
       client_secret_path: "credentials/client_secret.json"
       token_path: "credentials/token.json"
-      daily_quota_limit: 3
+      daily_quota_limit: 10
       privacy_status: "public"
       category_id: "19"
       tags:
