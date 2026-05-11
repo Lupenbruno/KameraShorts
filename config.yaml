@@ -53,7 +53,7 @@ telegram:
   bot_token: "8604699041:AAGgyb8fSjY0fBWGcerUhW7On4kZlqZfjo4"
   chat_id: "8640227849"
 
-ffmpeg_path: "C:\\Users\\arsen\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
+ffmpeg_path: ""  # Boş bırakıldı — sistem ffmpeg kullanılır (which ffmpeg)
 
 paths:
   clips_dir: "data/clips"

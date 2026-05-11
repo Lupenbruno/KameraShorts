@@ -244,11 +244,14 @@ if __name__ == "__main__":
     parser.add_argument("--record-only", action="store_true",
                         help="Sadece kaydet, upload yapma")
     parser.add_argument("--config", default="config.yaml")
+    parser.add_argument("--upload-queue", action="store_true", help="Kuyruktakileri yukle")
     args = parser.parse_args()
 
     app = CityApp(city_key=args.city, config_path=args.config)
 
-    if args.record_only:
+    if getattr(args, 'upload_queue', False):
+        app.uploader.upload_queue()
+    elif args.record_only:
         app.record_only(count=args.count)
     elif args.now:
         app.run_once(count=args.count, upload=not args.no_upload)
