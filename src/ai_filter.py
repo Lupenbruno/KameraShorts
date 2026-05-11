@@ -29,8 +29,8 @@ OBJECT_SCORES = {
     60: 1,   # dining table (kaldırım masası, dış mekan kafe)
 }
 
-MIN_SCORE   = 2    # Herhangi bir nesne tespiti = sokak sahnesi (zemin/damper/tavan → 0)
-CONF_THRESH = 0.25 # Güven eşiği — biraz düşürüldü, uzaktaki nesneler de yakalansın
+MIN_SCORE   = 4    # Zemin/damper → 0, tek uzak araç yetmez; sokak sahnesi gerekli
+CONF_THRESH = 0.30 # Güven eşiği
 
 _model = None
 _available = None
