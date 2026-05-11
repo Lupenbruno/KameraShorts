@@ -74,9 +74,13 @@ h1   { color: #00e5ff; font-size: 1.4rem; margin-bottom: 20px; }
 .vid-card h3 { font-size: .95rem; margin-bottom: 10px; color: #aaa; }
 .vid-card h3 span { font-weight: 700; }
 .vid-card video {
-  width: 100%; border-radius: 6px;
+  width: auto; height: 420px;
+  max-width: 100%;
+  border-radius: 6px;
   border: 2px solid #2a2a2a;
   display: block;
+  margin: 0 auto;
+  background: #000;
 }
 .vid-card.pass h3 span { color: #69ff47; }
 .vid-card.fail h3 span { color: #ff5252; }
@@ -321,8 +325,8 @@ def _run(q: queue.Queue):
 
         plate  = selected.get("license_plate", "?")
         vtype  = (selected.get("vehicle_type") or "?").strip()
-        lat    = selected.get("latitude", 39.9334)
-        lon    = selected.get("longitude", 32.8597)
+        lat    = float(selected.get("latitude", 39.9334) or 39.9334)
+        lon    = float(selected.get("longitude", 32.8597) or 32.8597)
 
         # ── 3. Klip kaydet ────────────────────────────────────────────────────
         put(f"\n🎥  Klip kaydediliyor  (20 saniye)")
