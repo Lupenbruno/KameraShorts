@@ -157,33 +157,7 @@ def describe_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -
     timestamps = [step, step * 2, step * 3]   # 3 kare yeterli
     counts: dict[int, int] = {}
 
-    with tempfile.TemporaryDirectory() as tmp:
-        for i, t in enumerate(timestamps):
-            frame = os.path.join(tmp, f"f{i}.jpg")
-            try:
-                subprocess.run(
-                    [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
-                     "-frames:v", "1", "-q:v", "3", "-vf", _VF_YOLO, frame],
-                    capture_output=True, timeout=10, **_NW
-                )
-            except Exception:
-                continue
-            if not Path(frame).exists():
-                continue
-            try:
-                results = _model(frame, conf=CONF_THRESH, verbose=False)
-                for r in results:
-                    for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
-                        cls_id = int(cls_id)
-                        if cls_id in _TR_NAMES:
-                            counts[cls_id] = max(counts.get(cls_id, 0), 1)
-                            counts[cls_id] += 0   # sadece varlık, tekrar sayma
-            except Exception:
-                pass
-
-    # Maksimum sayıyı bulmak için tüm karelerdeki en yüksek değeri al
-    # (yukarıdaki döngü her karede en az 1 sayıyor, tekrar çalıştır)
-    counts = {}
+    # Her karede tespitleri say, her sınıf için en yüksek sayıyı tut
     with tempfile.TemporaryDirectory() as tmp:
         for i, t in enumerate(timestamps):
             frame = os.path.join(tmp, f"f{i}.jpg")
