@@ -72,6 +72,10 @@ class AudioMixer:
 
         if weather:
             tts_text += f" Hava {weather['condition']}, {weather['temp']} derece."
+            if weather.get("humidity"):
+                tts_text += f" Nem yüzde {weather['humidity']}."
+            if weather.get("wind_kmh"):
+                tts_text += f" Rüzgar saatte {weather['wind_kmh']} kilometre."
 
         video    = Path(video_path)
         out_path = video.parent / (video.stem + "_audio.mp4")
