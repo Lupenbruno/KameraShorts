@@ -21,7 +21,6 @@ from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
 from src.weather import get_weather
-from src.ai_filter import describe_clip
 
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
          "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
@@ -138,12 +137,9 @@ class CityApp:
             metadata["city"] = self.city_name
             self.log.info(f"[{cam_name}] başlık: {metadata['title']}")
 
-            yolo_desc = describe_clip(clip_path, self.recorder.ffmpeg,
-                                      self.city_cfg.get("clip_duration", 180))
             tts_text = (
                 f"{camera['location']}. "
                 f"{turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
-                + (f" {yolo_desc}" if yolo_desc else "")
             )
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"], weather=weather)
@@ -204,12 +200,9 @@ class CityApp:
                 continue
 
             metadata = self.titler.generate(camera, now, weather=weather)
-            yolo_desc = describe_clip(clip_path, self.recorder.ffmpeg,
-                                      self.city_cfg.get("clip_duration", 180))
             tts_text = (
                 f"{camera['location']}. "
                 f"{turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
-                + (f" {yolo_desc}" if yolo_desc else "")
             )
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"], weather=weather)

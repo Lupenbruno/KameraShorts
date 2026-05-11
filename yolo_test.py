@@ -502,11 +502,6 @@ def _run(q: queue.Queue):
 
         # ── 8. TTS + Overlay ─────────────────────────────────────────────────
         put(f"\n🔊  Ses ve overlay ekleniyor...")
-        from src.ai_filter import describe_clip
-        yolo_desc = describe_clip(str(raw_path), ff, 20)
-        if yolo_desc:
-            tts_text += f" {yolo_desc}"
-            put(f"  🤖 YOLO TTS: {yolo_desc}")
         speed = selected.get("speed", 0)
         if speed:
             tts_text += f" Otobüs {speed} kilometre hızla ilerliyor."
