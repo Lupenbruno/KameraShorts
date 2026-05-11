@@ -374,18 +374,21 @@ def _run(q: queue.Queue):
         put("  🤖  YOLO ANALİZİ")
         put(f"{'═'*52}")
 
-        from src.ai_filter import _load_model, OBJECT_SCORES, CONF_THRESH, MIN_SCORE
-        PANEL_MIN_SCORE = MIN_SCORE * 3  # 12 — gercek pipeline 1 kare/4p, biz 5 kare/12p
+        from src.ai_filter import (_load_model, OBJECT_SCORES, CONF_THRESH,
+                                    MIN_SCORE, _VF_YOLO, _brightness, _dynamic_min_score)
         yolo_ok = _load_model()
 
-        geçti = True  # YOLO yoksa geçir
+        geçti = True
         total = 0
+        PANEL_FACTOR   = 3   # 5 kare analiz, dinamik eşiği 3x alıyoruz
+        PANEL_MIN_SCORE = MIN_SCORE * PANEL_FACTOR  # başlangıç, ilk kareden güncellenir
 
         if yolo_ok:
             from src.ai_filter import _model, _sky_bonus
             step       = max(2, 20 // 6)
             timestamps = [step, step*2, step*3, step*4, step*5]
             sky_pts    = 0
+            first_brightness = 128.0
 
             for i, t in enumerate(timestamps):
                 with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as fp_obj:
@@ -393,12 +396,22 @@ def _run(q: queue.Queue):
                 try:
                     subprocess.run(
                         [ff, "-y", "-ss", str(t), "-i", str(raw_path),
-                         "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-1", fp],
+                         "-frames:v", "1", "-q:v", "3", "-vf", _VF_YOLO, fp],
                         capture_output=True, timeout=10, **_NW)
 
                     if not Path(fp).exists():
                         put(f"  Kare {i+1}  t={t}s  → ❌ çekilemedi")
                         continue
+
+                    # İlk kareden parlaklık ölç → dinamik eşik
+                    if i == 0:
+                        first_brightness = _brightness(fp)
+                        dyn_min = _dynamic_min_score(first_brightness)
+                        PANEL_MIN_SCORE = dyn_min * PANEL_FACTOR
+                        mode = ("🌙 gece" if first_brightness < 60
+                                else "🌆 alacakaranlık" if first_brightness < 100
+                                else "☀️ gündüz")
+                        put(f"  💡 Parlaklık: {first_brightness:.0f}  →  {mode}  →  eşik: {PANEL_MIN_SCORE}p")
 
                     results = _model(fp, conf=CONF_THRESH, verbose=False)
                     fs, dets = 0, []
@@ -427,9 +440,6 @@ def _run(q: queue.Queue):
 
             geçti = total >= PANEL_MIN_SCORE
             put(f"\n  TOPLAM SKOR : {total} puan  (eşik: {PANEL_MIN_SCORE})")
-            # Gece görüşü uyarısı (gri/siyah-beyaz video)
-            if not geçti and total >= MIN_SCORE:
-                put(f"  ⚠️  Not: Gece görüşü / gri ton → YOLO hassasiyeti düşük olabilir")
             put(f"  KARAR: {'✅ GEÇTİ — pipeline yükler' if geçti else '❌ ELENDİ — kalite yetersiz'}")
             put(f"{'═'*52}")
         else:

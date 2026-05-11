@@ -13,6 +13,36 @@ from pathlib import Path
 
 log = logging.getLogger("kamerashorts")
 
+
+def _brightness(frame_path: str) -> float:
+    """Karedeki ortalama parlaklığı döndür (0-255). PIL yoksa 128 döner."""
+    try:
+        from PIL import Image
+        import numpy as np
+        arr = np.array(Image.open(frame_path).convert("L"))
+        return float(arr.mean())
+    except Exception:
+        return 128.0
+
+
+def _dynamic_min_score(brightness: float) -> int:
+    """Parlaklığa göre dinamik MIN_SCORE.
+
+    Gece IR modu (< 60) → 2   (çok karanlık, YOLO hassasiyeti düşük)
+    Alacakaranlık (60-100)→ 3
+    Gündüz (> 100)         → 4  (varsayılan MIN_SCORE)
+    """
+    if brightness < 60:
+        return 2
+    if brightness < 100:
+        return 3
+    return MIN_SCORE
+
+
+# CLAHE kontrastlı kare çekme filtresi
+# eq=contrast: IR görüntüde nesne sınırlarını belirginleştirir
+_VF_YOLO = "scale=640:-1,crop=iw:ih*0.75:0:0,eq=contrast=1.4:brightness=0.05"
+
 # COCO sınıflarından sokak/trafik için puanlar
 # Otobüs/kamyon kameralarında zemin, damper içi, tavan → 0 puan → elenir
 OBJECT_SCORES = {
@@ -57,39 +87,35 @@ def _load_model():
     return _available
 
 
-def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> int:
+def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> tuple[int, int]:
     """
-    Klipten 3 kare çek, YOLO ile analiz et, toplam skor döndür.
-    Skor 0 → tavan/zemin/boş/karanlık
-    Skor ≥ 1 → geçerli sokak sahnesi
+    Klipten 5 kare çek, YOLO ile analiz et.
+    Döndürür: (toplam_skor, dinamik_esik)
+    Skor < esik → elenecek | skor >= esik → geçecek
     """
     if not _load_model():
-        return 99  # AI yoksa hep geçir
+        return 99, MIN_SCORE  # AI yoksa hep geçir
 
+    _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
     step = max(2, duration // 6)
     timestamps = [step, step * 2, step * 3, step * 4, step * 5]
     total = 0
+    first_brightness = 128.0
 
     with tempfile.TemporaryDirectory() as tmp:
         for i, t in enumerate(timestamps):
             frame = os.path.join(tmp, f"frame_{i}.jpg")
-            cmd = [
-                ffmpeg, "-y", "-ss", str(t),
-                "-i", video_path,
-                "-frames:v", "1",
-                "-q:v", "3",
-                "-vf", "scale=640:-1,crop=iw:ih*0.75:0:0",
-                frame
-            ]
-            _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+            cmd = [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
+                   "-frames:v", "1", "-q:v", "3", "-vf", _VF_YOLO, frame]
             try:
                 subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
             except Exception:
                 continue
-
             if not Path(frame).exists():
                 continue
-
+            # İlk karedeki parlaklığı ölç (dinamik eşik için)
+            if i == 0:
+                first_brightness = _brightness(frame)
             try:
                 results = _model(frame, conf=CONF_THRESH, verbose=False)
                 for r in results:
@@ -98,7 +124,9 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
             except Exception as e:
                 log.debug(f"YOLO kare analiz hatasi: {e}")
 
-    return total
+    dyn_min = _dynamic_min_score(first_brightness)
+    log.debug(f"score_clip: toplam={total}, parlaklik={first_brightness:.0f}, esik={dyn_min}")
+    return total, dyn_min
 
 
 # Türkçe nesne açıklamaları (TTS için)
@@ -135,7 +163,7 @@ def describe_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -
             try:
                 subprocess.run(
                     [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
-                     "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-1", frame],
+                     "-frames:v", "1", "-q:v", "3", "-vf", _VF_YOLO, frame],
                     capture_output=True, timeout=10, **_NW
                 )
             except Exception:
@@ -163,7 +191,7 @@ def describe_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -
                 subprocess.run(
                     [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
                      "-frames:v", "1", "-q:v", "3",
-                     "-vf", "scale=640:-1,crop=iw:ih*0.75:0:0", frame],
+                     "-vf", _VF_YOLO, frame],
                     capture_output=True, timeout=10, **_NW
                 )
             except Exception:
@@ -252,7 +280,7 @@ def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
             "-frames:v", "1",
             "-ss", "2",
             "-q:v", "4",
-            "-vf", "scale=640:-1,crop=iw:ih*0.75:0:0",
+            "-vf", _VF_YOLO,
             frame
         ]
         try:
@@ -274,17 +302,20 @@ def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
 
         # Gökyüzü görünüyorsa kamera açısı doğru → bonus puan
         score += _sky_bonus(frame)
+        # Dinamik eşik — gece IR modunda daha düşük
+        dyn_min = _dynamic_min_score(_brightness(frame))
 
-    passed = score >= MIN_SCORE
-    log.info(f"Ön kontrol: {score}p → {'GEÇTI' if passed else 'ELENDİ (zemin/damper/karanlık)'}")
+    passed = score >= dyn_min
+    log.info(f"Ön kontrol: {score}p (esik:{dyn_min}) → {'GECTI' if passed else 'ELENDI'}")
     return passed
 
 
 def is_interesting(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> bool:
     """True → yükle, False → atla."""
-    score = score_clip(video_path, ffmpeg, duration)
-    log.info(f"AI skor: {score} ({'GECTI' if score >= MIN_SCORE else 'ELENDI'})")
-    return score >= MIN_SCORE
+    score, dyn_min = score_clip(video_path, ffmpeg, duration)
+    gecti = score >= dyn_min
+    log.info(f"AI skor: {score} (esik:{dyn_min}) → {'GECTI' if gecti else 'ELENDI'}")
+    return gecti
 
 
 def best_frame(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> str | None:
