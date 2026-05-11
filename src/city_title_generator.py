@@ -27,17 +27,34 @@ class CityTitleGenerator:
         self.tags_base = list(tags_base)
         self.city_key = city_key   # multilingual için ("corum", "konya", vb.)
 
-    def generate(self, camera: dict, now: datetime) -> dict:
+    def generate(self, camera: dict, now: datetime, weather: dict = None) -> dict:
         name = camera["name"]
         location = camera["location"]
         saat = now.strftime("%H:%M")
         tarih = now.strftime("%d.%m.%Y")
         saat_desc = SAAT_TR.get(now.hour, saat)
 
-        title = f"{name} Canlı Kamera | {saat} | {tarih}"
+        # Hava durumu kısa metni başlığa ekle
+        wx_str = f" | {weather['title_str']}" if weather else ""
+        title = f"{name} Canlı Kamera | {saat}{wx_str} | {tarih}"
+        if len(title) > 100:
+            title = title[:97] + "..."
+
+        # Hava durumu açıklama satırı
+        if weather:
+            wx_line = (
+                f"🌡️ Hava: {weather['emoji']} {weather['temp']}°C, "
+                f"{weather['condition']} | "
+                f"💧 {weather['humidity']}% nem | "
+                f"💨 {weather['wind_kmh']} km/s\n"
+            )
+        else:
+            wx_line = ""
+
         description = (
             f"🎥 {name} — {saat_desc} ({tarih})\n"
-            f"📍 {location}\n\n"
+            f"📍 {location}\n"
+            f"{wx_line}\n"
             f"{self.city_name} şehir kameralarından canlı görüntü.\n\n"
             f"#{self.city_name} #CanlıKamera #{''.join(name.split())} "
             f"#{self.city_name}Kamera #turkey #turkiye"
@@ -48,6 +65,14 @@ class CityTitleGenerator:
             name.replace(" ", ""),
             location.split(",")[0].strip(),
         ]
+
+        # Hava durumu etiketleri
+        if weather:
+            tags.append(weather["tag_str"])
+            if weather["is_snow"]:
+                tags += [f"kar{self.city_name.lower()}", "karyanağıyor", "snowturkiye"]
+            if weather["is_rain"]:
+                tags += [f"yağmur{self.city_name.lower()}", "yağmurlu"]
 
         # Çok dilli başlık/açıklama
         city_names_key = CITY_KEY_MAP.get(self.city_key, self.city_name)

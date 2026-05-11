@@ -20,6 +20,7 @@ from src.city_title_generator import CityTitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
+from src.weather import get_weather
 
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
          "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
@@ -93,6 +94,9 @@ class CityApp:
         self.mixer = AudioMixer(self.config)
         self.notifier = TelegramNotifier(self.config)
 
+        # Hava durumu API anahtarı
+        self.owm_key = self.config.get("openweathermap_api_key", "")
+
     # ------------------------------------------------------------------
     def run_once(self, count: int = 1, upload: bool = True):
         now = datetime.now()
@@ -104,6 +108,13 @@ class CityApp:
         self.log.info(
             f"{len(cameras)} aday kamera, {count} başarılı video hedefleniyor"
         )
+
+        # Hava durumu — slot başında bir kere çek (10 dk cache'den gelir)
+        weather = get_weather(city_key=self.city_key, api_key=self.owm_key)
+        if weather:
+            self.log.info(
+                f"Hava durumu: {weather['emoji']} {weather['temp']}°C {weather['condition']}"
+            )
 
         success = 0
         for camera in cameras:
@@ -122,7 +133,7 @@ class CityApp:
                 self.log.warning(f"[{cam_name}] klip alınamadı, atlanıyor")
                 continue
 
-            metadata = self.titler.generate(camera, now)
+            metadata = self.titler.generate(camera, now, weather=weather)
             metadata["city"] = self.city_name
             self.log.info(f"[{cam_name}] başlık: {metadata['title']}")
 
@@ -170,6 +181,7 @@ class CityApp:
 
         cameras = self.registry.get_next_cameras(count=count * 4)
         success = 0
+        weather = get_weather(city_key=self.city_key, api_key=self.owm_key)
 
         for camera in cameras:
             if success >= count:
@@ -187,7 +199,7 @@ class CityApp:
                 self.log.warning(f"[{cam_name}] klip alınamadı, atlanıyor")
                 continue
 
-            metadata = self.titler.generate(camera, now)
+            metadata = self.titler.generate(camera, now, weather=weather)
             tts_text = (
                 f"{camera['location']}. "
                 f"{turkce_tarih(now)}, saat {now.strftime('%H:%M')}."

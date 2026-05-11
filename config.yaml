@@ -55,6 +55,10 @@ telegram:
 
 ffmpeg_path: ""  # Boş bırakıldı — sistem ffmpeg kullanılır (which ffmpeg)
 
+# OpenWeatherMap API — ücretsiz (1000 req/gün)
+# https://openweathermap.org/api/one-call-3
+openweathermap_api_key: ""   # buraya OWM API key gir
+
 paths:
   clips_dir: "data/clips"
   queue_path: "data/queue/upload_queue.json"

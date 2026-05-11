@@ -17,7 +17,8 @@ class TitleGenerator:
     def __init__(self, config: dict):
         self.tags = config["youtube"].get("tags", [])
 
-    def generate(self, vehicle: dict, location: str, capture_time: datetime) -> dict:
+    def generate(self, vehicle: dict, location: str, capture_time: datetime,
+                 weather: dict = None) -> dict:
         d = capture_time.day
         m = capture_time.month
         y = capture_time.year
@@ -27,17 +28,30 @@ class TitleGenerator:
         speed = vehicle.get("speed", 0)
         weekday = WEEKDAYS_TR[capture_time.weekday()]
 
-        # Başlık: "3/5/2026 15:00 - TEM Otoyolu, Keçiören #Shorts"
-        title = f"{d}/{m}/{y} {t} - {location} #Shorts"
+        # Başlık: "3/5/2026 15:00 - TEM Otoyolu, Keçiören ☀️ 22°C #Shorts"
+        wx_str = f" {weather['title_str']}" if weather else ""
+        title = f"{d}/{m}/{y} {t} - {location}{wx_str} #Shorts"
         if len(title) > 100:
             title = title[:97] + "..."
+
+        # Hava durumu açıklama satırı
+        if weather:
+            wx_line = (
+                f"🌡️ Hava: {weather['emoji']} {weather['temp']}°C, "
+                f"{weather['condition']} | "
+                f"💧 {weather['humidity']}% nem | "
+                f"💨 {weather['wind_kmh']} km/s\n"
+            )
+        else:
+            wx_line = ""
 
         description = (
             f"🚌 Ankara {vtype} - Canlı Kamera\n"
             f"📍 {location}\n"
             f"🚗 Hız: {speed} km/h\n"
             f"📅 {weekday}, {d}/{m}/{y} - Saat {t}\n"
-            f"🔢 Plaka: {plate}\n\n"
+            f"🔢 Plaka: {plate}\n"
+            f"{wx_line}\n"
             f"Ankara Büyükşehir Belediyesi EGO otobüslerinden canlı kamera görüntüleri.\n"
             f"Kaynak: seyret.ankara.bel.tr\n\n"
             f"#ankara #trafik #otobüs #shorts #ankaratrafik #ego #canlikamera"
@@ -47,6 +61,14 @@ class TitleGenerator:
             "ankara", "ego", "otobüs", plate.lower(),
             location.split(",")[0].lower(), weekday.lower()
         ]
+
+        # Hava durumu etiketleri
+        if weather:
+            tags.append(weather["tag_str"])
+            if weather["is_snow"]:
+                tags += ["karankara", "karyanağıyor", "snowankara"]
+            if weather["is_rain"]:
+                tags += ["yağmurankara", "yağmurlu"]
 
         # Çok dilli başlık/açıklama
         localizations = ankara_localizations(location, capture_time)

@@ -23,6 +23,7 @@ from src.title_generator import TitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
+from src.weather import get_weather
 
 USED_PLATES_FILE = Path("data/ankara_used_plates.json")
 
@@ -72,6 +73,7 @@ class KameraShortsApp:
         self.uploader = YouTubeUploader(self.config)
         self.mixer = AudioMixer(self.config)
         self.notifier = TelegramNotifier(self.config)
+        self.owm_key = self.config.get("openweathermap_api_key", "")
 
     def record_only(self, count: int = 1):
         """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""
@@ -81,6 +83,11 @@ class KameraShortsApp:
 
         candidates = self.registry.get_active_cameras(limit=count * 10)
         self.log.info(f"{len(candidates)} aday kamera, {count} klip hedefleniyor")
+
+        # Hava durumu — slot başında bir kere çek
+        weather = get_weather("ankara", api_key=self.owm_key)
+        if weather:
+            self.log.info(f"Hava: {weather['emoji']} {weather['temp']}°C {weather['condition']}")
 
         success, tried, filtered = 0, 0, 0
         for vehicle in candidates:
@@ -101,7 +108,7 @@ class KameraShortsApp:
             location = self.geocoder.get_location_name(lat, lon)
             self.log.info(f"[{plate}] konum: {location}")
 
-            metadata = self.titler.generate(vehicle, location, now)
+            metadata = self.titler.generate(vehicle, location, now, weather=weather)
             metadata["city"] = "Ankara"
             self.log.info(f"[{plate}] baslik: {metadata['title']}")
 
@@ -135,6 +142,11 @@ class KameraShortsApp:
         TYPE_PRI = {"Solo": 0, "Körüklü": 1, "ELK": 2}
         candidates.sort(key=lambda c: TYPE_PRI.get((c.get("vehicle_type") or "").strip(), 99))
 
+        # Hava durumu — slot başında bir kere çek
+        weather = get_weather("ankara", api_key=self.owm_key)
+        if weather:
+            self.log.info(f"Hava: {weather['emoji']} {weather['temp']}°C {weather['condition']}")
+
         success = 0
         vehicles_tried = 0
         for vehicle in candidates:
@@ -157,7 +169,7 @@ class KameraShortsApp:
             self.log.info(f"[{plate}] konum: {location}")
 
             # Metadata oluştur
-            metadata = self.titler.generate(vehicle, location, now)
+            metadata = self.titler.generate(vehicle, location, now, weather=weather)
             metadata["city"] = "Ankara"
             self.log.info(f"[{plate}] başlık: {metadata['title']}")
 
