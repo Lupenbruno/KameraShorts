@@ -62,8 +62,9 @@ OBJECT_SCORES = {
     60: 1,   # dining table
 }
 
-MIN_SCORE   = 4    # Zemin/damper → 0, tek uzak araç yetmez; sokak sahnesi gerekli
-CONF_THRESH = 0.30 # Güven eşiği
+MIN_SCORE        = 4    # Zemin/damper → 0, tek uzak araç yetmez; sokak sahnesi gerekli
+CONF_THRESH      = 0.30 # YOLO tespit eşiği (skorlama için)
+TTS_CONF_THRESH  = 0.70 # TTS'e giren tespit eşiği — %70 altı söylenmiyor
 
 _model = None
 _available = None
@@ -187,9 +188,13 @@ def describe_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -
                 frame_counts: dict[int, int] = {}
                 results = _model(frame, conf=CONF_THRESH, verbose=False)
                 for r in results:
-                    for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                    boxes = r.boxes
+                    if not boxes:
+                        continue
+                    for cls_id, conf in zip(boxes.cls.tolist(), boxes.conf.tolist()):
                         cls_id = int(cls_id)
-                        if cls_id in _TR_NAMES:
+                        # Sadece %70+ güvenli tespitler TTS'e girer
+                        if conf >= TTS_CONF_THRESH and cls_id in _TR_NAMES:
                             frame_counts[cls_id] = frame_counts.get(cls_id, 0) + 1
                 for cls_id, cnt in frame_counts.items():
                     counts[cls_id] = max(counts.get(cls_id, 0), cnt)

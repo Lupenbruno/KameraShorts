@@ -146,6 +146,7 @@ h1   { color: #00e5ff; font-size: 1.4rem; margin-bottom: 20px; }
     <div class="vid-card final" id="final-card" style="display:none">
       <h3>✨ Pipeline Çıktısı &nbsp;<span style="color:#00e5ff">TTS + Overlay</span></h3>
       <video id="final-player" controls></video>
+      <button id="play-audio-btn" onclick="playFinal()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#00e5ff;color:#000;border:none;border-radius:6px;font-size:1rem;font-weight:bold;cursor:pointer">▶ Sesli Oynat</button>
     </div>
   </div>
 
@@ -169,6 +170,12 @@ h1   { color: #00e5ff; font-size: 1.4rem; margin-bottom: 20px; }
 
 <script>
 let rawFile = null, finalFile = null;
+
+function playFinal() {
+  const fp = document.getElementById('final-player');
+  fp.play();
+  document.getElementById('play-audio-btn').style.display = 'none';
+}
 
 function col(text) {
   return text
@@ -225,9 +232,15 @@ function startTest() {
     // İşlenmiş final video
     if (msg.startsWith('__FINAL__:')) {
       finalFile = msg.slice(10);
-      document.getElementById('final-player').src = '/yolo-test/video/' + finalFile;
+      const fp = document.getElementById('final-player');
+      fp.src = '/yolo-test/video/' + finalFile;
       document.getElementById('final-card').style.display = 'block';
       document.getElementById('verdict-banner').textContent = '✅ YOLO GEÇTİ — Pipeline çıktısı hazır!';
+      fp.load();
+      fp.play().catch(() => {
+        // Tarayıcı autoplay engelledi — butonu göster
+        document.getElementById('play-audio-btn').style.display = 'block';
+      });
       return;
     }
 
