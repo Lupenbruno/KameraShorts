@@ -143,11 +143,16 @@ class TelegramNotifier:
         self.send(f"⚠️ <b>HATA</b>\n{message}")
 
     def notify_start(self):
-        # 1 saat içinde tekrar gönderme
-        now = time.time()
-        if now - getattr(self, "_last_start_sent", 0) < 3600:
-            return
-        self._last_start_sent = now
+        # 1 saat içinde tekrar gönderme — dosyaya yazarak restart'tan sonra da hatırla
+        _flag = Path("data/.last_start_notify")
+        try:
+            if _flag.exists():
+                if time.time() - _flag.stat().st_mtime < 3600:
+                    return
+            _flag.parent.mkdir(parents=True, exist_ok=True)
+            _flag.touch()
+        except Exception:
+            pass
         self.send(
             f"🚀 <b>KameraShorts başlatıldı</b>\n"
             f"🕐 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"

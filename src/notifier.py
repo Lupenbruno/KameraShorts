@@ -51,11 +51,15 @@ class TelegramNotifier:
         )
 
     def system_started(self, mode: str):
-        key = mode.lower()
-        now = time.time()
-        if now - _last_started.get(key, 0) < _START_COOLDOWN:
-            return  # 1 saat geçmeden tekrar gönderme
-        _last_started[key] = now
+        # Dosya bazlı cooldown — restart'tan sonra da çalışır
+        _flag = Path(f"data/.last_started_{mode.lower().replace(' ','_')}")
+        try:
+            if _flag.exists() and (time.time() - _flag.stat().st_mtime) < _START_COOLDOWN:
+                return
+            _flag.parent.mkdir(parents=True, exist_ok=True)
+            _flag.touch()
+        except Exception:
+            pass
         self._send(
             f"✅ <b>AsfaltTV başlatıldı</b>\n"
             f"Mod: {mode}\n"
