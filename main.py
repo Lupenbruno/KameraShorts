@@ -24,7 +24,17 @@ from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
 
-USED_PLATES_FILE = Path("data/ankara_used_plates.json")
+USED_PLATES_FILE    = Path("data/ankara_used_plates.json")
+FAVORITE_PLATES_FILE = Path("data/favorite_plates.json")
+
+def _load_favorite_plates() -> list:
+    """Favori plakaları yükle."""
+    try:
+        if FAVORITE_PLATES_FILE.exists():
+            return _json.loads(FAVORITE_PLATES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return []
 
 def _load_used_plates() -> set:
     """Bugün kullanılan plakaları yükle. Tarih değiştiyse sıfırla."""
@@ -131,9 +141,18 @@ class KameraShortsApp:
         candidates = [v for v in candidates
                       if v.get("license_plate", "?") not in used_plates]
         self.log.info(f"{len(candidates)} aday kamera (bugün kullanılmamış), {count} hedefleniyor")
-        # Otobüsleri öne al (Solo/Körüklü), iş makinelerini sona bırak
-        TYPE_PRI = {"Solo": 0, "Körüklü": 1, "ELK": 2}
-        candidates.sort(key=lambda c: TYPE_PRI.get((c.get("vehicle_type") or "").strip(), 99))
+        # Favoriler önce, sonra otobüsler (Solo/Körüklü), iş makineleri sona
+        favorites = set(_load_favorite_plates())
+        TYPE_PRI = {"Solo": 1, "Körüklü": 2, "ELK": 3}
+        def _sort_key(c):
+            plate = c.get("license_plate", "")
+            if plate in favorites:
+                return 0  # En yüksek öncelik
+            return TYPE_PRI.get((c.get("vehicle_type") or "").strip(), 99)
+        candidates.sort(key=_sort_key)
+        fav_count = sum(1 for c in candidates if c.get("license_plate", "") in favorites)
+        if fav_count:
+            self.log.info(f"⭐ {fav_count} favori plaka sıralamanın başına alındı")
 
         success = 0
         vehicles_tried = 0

@@ -6,7 +6,22 @@ from pathlib import Path
 import yaml
 from flask import Flask, jsonify, render_template_string, send_file, request, Response
 
-CONFIG_PATH = Path("config.yaml")
+CONFIG_PATH          = Path("config.yaml")
+FAVORITE_PLATES_FILE = Path("data/favorite_plates.json")
+
+def _load_favorites() -> list:
+    try:
+        if FAVORITE_PLATES_FILE.exists():
+            return json.loads(FAVORITE_PLATES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return []
+
+def _save_favorites(plates: list):
+    FAVORITE_PLATES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    FAVORITE_PLATES_FILE.write_text(
+        json.dumps(plates, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 # Windows'ta CMD penceresi açılmasını engelle
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
@@ -212,6 +227,26 @@ body{background:#0e0e0e;color:#d0d0d0;font-family:'Segoe UI',system-ui,sans-seri
 .logbox .e{color:#8a3030}.logbox .m{color:#333}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px}
 
+/* favori plakalar */
+.fav-card{background:#141414;border:1px solid #222;border-radius:10px;padding:16px}
+.fav-card h3{font-size:12px;font-weight:600;color:#555;text-transform:uppercase;
+             letter-spacing:.5px;margin-bottom:12px}
+.fav-add{display:flex;gap:8px;margin-bottom:12px}
+.fav-add input{flex:1;background:#0e0e0e;border:1px solid #2a2a2a;border-radius:6px;
+               color:#ddd;padding:8px 12px;font-size:13px;outline:none}
+.fav-add input:focus{border-color:#ffc107}
+.fav-add button{background:#ffc107;color:#000;border:none;border-radius:6px;
+                padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer}
+.fav-add button:hover{filter:brightness(1.1)}
+.fav-list{display:flex;flex-direction:column;gap:5px}
+.fav-item{display:flex;align-items:center;gap:8px;padding:8px 12px;
+          background:#1a1a1a;border-radius:6px}
+.fav-plate{flex:1;font-size:13px;font-weight:700;color:#ffc107;letter-spacing:.5px}
+.fav-del{background:none;border:1px solid #333;color:#555;border-radius:4px;
+         padding:3px 8px;font-size:11px;cursor:pointer}
+.fav-del:hover{border-color:#e63946;color:#e63946}
+.fav-empty{color:#333;font-size:12px;padding:8px 0;text-align:center}
+
 /* yükleme akış tablosu */
 .flow-card{background:#141414;border:1px solid #222;border-radius:10px;padding:16px}
 .flow-card h3{font-size:12px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
@@ -347,6 +382,19 @@ body{background:#0e0e0e;color:#d0d0d0;font-family:'Segoe UI',system-ui,sans-seri
         <div class="stat"><div class="v" id="yt-k">0</div><div class="k">Bugün YT</div></div>
         <div class="stat"><div class="v" id="clips-k">0</div><div class="k">Klip</div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- FAVORİ PLAKALAR -->
+  <div class="fav-card">
+    <h3>⭐ Favori Plakalar</h3>
+    <div class="fav-add">
+      <input type="text" id="fav-input" placeholder="Plaka gir (örn. 06 EPE 496)" maxlength="20"
+             onkeydown="if(event.key==='Enter')addFav()">
+      <button onclick="addFav()">Ekle</button>
+    </div>
+    <div class="fav-list" id="fav-list">
+      <div class="fav-empty">Yükleniyor...</div>
     </div>
   </div>
 
@@ -634,11 +682,49 @@ function loadFlowTable() {
   }).catch(()=>{});
 }
 
-loadStats(); loadLogs(); loadClips(); loadFlowTable();
+function loadFavorites() {
+  fetch('/api/favorites').then(r=>r.json()).then(d => {
+    var el = document.getElementById('fav-list');
+    if (!d.plates || !d.plates.length) {
+      el.innerHTML = '<div class="fav-empty">Henüz favori plaka yok — eklediğin plakalar pipeline\'da öncelikli çekilir</div>';
+      return;
+    }
+    el.innerHTML = d.plates.map(p =>
+      `<div class="fav-item">
+        <span>⭐</span>
+        <span class="fav-plate">${p}</span>
+        <button class="fav-del" onclick="removeFav('${p}')">✕ Kaldır</button>
+      </div>`
+    ).join('');
+  });
+}
+
+function addFav() {
+  var inp = document.getElementById('fav-input');
+  var plate = inp.value.trim().toUpperCase();
+  if (!plate) return;
+  fetch('/api/favorites/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({plate: plate})
+  }).then(r=>r.json()).then(d => {
+    if (d.ok) { inp.value = ''; loadFavorites(); }
+    else alert(d.error || 'Hata');
+  });
+}
+
+function removeFav(plate) {
+  fetch('/api/favorites/remove', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({plate: plate})
+  }).then(r=>r.json()).then(() => loadFavorites());
+}
+
+loadStats(); loadLogs(); loadClips(); loadFlowTable(); loadFavorites();
 setInterval(loadStats,     20000);
 setInterval(loadLogs,      30000);
 setInterval(loadClips,     30000);
 setInterval(loadFlowTable, 60000);
+setInterval(loadFavorites, 30000);
 </script>
 </body>
 </html>
@@ -832,6 +918,35 @@ def api_schedule_table():
         "city_totals": city_totals,
         "grand_total": sum(city_totals.values()),
     })
+
+
+@app.route("/api/favorites")
+def api_favorites():
+    return jsonify({"plates": _load_favorites()})
+
+
+@app.route("/api/favorites/add", methods=["POST"])
+def api_favorites_add():
+    data = json.loads(request.data)
+    plate = (data.get("plate", "") or "").strip().upper()
+    if not plate:
+        return jsonify({"ok": False, "error": "Plaka boş olamaz"}), 400
+    plates = _load_favorites()
+    if plate in plates:
+        return jsonify({"ok": False, "error": "Bu plaka zaten ekli"})
+    plates.append(plate)
+    _save_favorites(plates)
+    return jsonify({"ok": True, "plates": plates})
+
+
+@app.route("/api/favorites/remove", methods=["POST"])
+def api_favorites_remove():
+    data = json.loads(request.data)
+    plate = (data.get("plate", "") or "").strip().upper()
+    plates = _load_favorites()
+    plates = [p for p in plates if p != plate]
+    _save_favorites(plates)
+    return jsonify({"ok": True, "plates": plates})
 
 
 @app.route("/api/logs/<pipeline>")
