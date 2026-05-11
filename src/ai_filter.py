@@ -99,6 +99,52 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
     return total
 
 
+def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
+    """Stream URL'den 1 kare çek, YOLO ile kontrol et.
+
+    Kayıt başlamadan önce çağrılır — zemin/damper/karanlık ise False döner.
+    YOLO yoksa her zaman True döner (geçir).
+    ~3 saniye sürer.
+    """
+    if not _load_model():
+        return True
+
+    _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        frame = os.path.join(tmp, "qc.jpg")
+        cmd = [
+            ffmpeg, "-y",
+            "-tls_verify", "0",
+            "-i", stream_url,
+            "-frames:v", "1",
+            "-ss", "2",
+            "-q:v", "4",
+            "-vf", "scale=640:-1",
+            frame
+        ]
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=15, **_NW)
+        except Exception:
+            return True  # timeout → geçir, asıl kayıtta anlaşılır
+
+        if not Path(frame).exists() or Path(frame).stat().st_size < 500:
+            return True  # kare alınamadı → geçir
+
+        try:
+            results = _model(frame, conf=CONF_THRESH, verbose=False)
+            score = 0
+            for r in results:
+                for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                    score += OBJECT_SCORES.get(int(cls_id), 0)
+        except Exception:
+            return True
+
+    passed = score >= MIN_SCORE
+    log.info(f"Ön kontrol: {score}p → {'GEÇTI' if passed else 'ELENDİ (zemin/damper/karanlık)'}")
+    return passed
+
+
 def is_interesting(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> bool:
     """True → yükle, False → atla."""
     score = score_clip(video_path, ffmpeg, duration)

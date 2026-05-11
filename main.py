@@ -23,7 +23,6 @@ from src.title_generator import TitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
-from src.camera_scorer import CameraScorer
 
 USED_PLATES_FILE = Path("data/ankara_used_plates.json")
 
@@ -73,11 +72,6 @@ class KameraShortsApp:
         self.uploader = YouTubeUploader(self.config)
         self.mixer = AudioMixer(self.config)
         self.notifier = TelegramNotifier(self.config)
-        import shutil as _shutil
-        _ff = self.config.get("ffmpeg_path") or ""
-        if _ff and not Path(_ff).exists():
-            _ff = ""
-        self.scorer = CameraScorer(ffmpeg_path=_ff or _shutil.which("ffmpeg") or "ffmpeg")
 
     def record_only(self, count: int = 1):
         """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""
@@ -137,9 +131,9 @@ class KameraShortsApp:
         candidates = [v for v in candidates
                       if v.get("license_plate", "?") not in used_plates]
         self.log.info(f"{len(candidates)} aday kamera (bugün kullanılmamış), {count} hedefleniyor")
-        # Skor sistemine göre en kalitelileri öne al
-        self.log.info("Kamera kalitesi analiz ediliyor...")
-        candidates = self.scorer.pick_best(candidates, now=now, top_n=count * 2)
+        # Otobüsleri öne al (Solo/Körüklü), iş makinelerini sona bırak
+        TYPE_PRI = {"Solo": 0, "Körüklü": 1, "ELK": 2}
+        candidates.sort(key=lambda c: TYPE_PRI.get((c.get("vehicle_type") or "").strip(), 99))
 
         success = 0
         vehicles_tried = 0

@@ -8,7 +8,7 @@ import time
 import requests
 from datetime import datetime
 from pathlib import Path
-from src.ai_filter import is_interesting, best_frame
+from src.ai_filter import quick_check, best_frame
 
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
@@ -131,6 +131,11 @@ class ClipRecorder:
         if not self._start_relay(vehicle):
             return None
 
+        # Relay açıkken 1 kare çek, YOLO ile ön kontrol
+        if not quick_check(stream_url, self.ffmpeg):
+            print(f"  [{plate}] Ön YOLO: zemin/damper/karanlık, atlanıyor")
+            return None
+
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 # Segmentleri direkt indir
@@ -167,10 +172,6 @@ class ClipRecorder:
                     if out_path.stat().st_size > 100_000:
                         if self._is_frozen(str(out_path)):
                             print(f"  Donuk video, atlanıyor: {plate}")
-                            out_path.unlink(missing_ok=True)
-                            return None
-                        if not is_interesting(str(out_path), self.ffmpeg, self.duration):
-                            print(f"  AI: ilgisiz sahne, atlanıyor: {plate}")
                             out_path.unlink(missing_ok=True)
                             return None
                         best_frame(str(out_path), self.ffmpeg, self.duration)
