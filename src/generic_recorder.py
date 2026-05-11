@@ -16,7 +16,10 @@ class GenericRecorder:
         self.duration = duration
         self.clips_dir = Path(clips_dir)
         self.clips_dir.mkdir(parents=True, exist_ok=True)
-        self.ffmpeg = ffmpeg_path or shutil.which("ffmpeg") or "ffmpeg"
+        _ff = ffmpeg_path or ""
+        if _ff and not Path(_ff).exists():
+            _ff = ""
+        self.ffmpeg = _ff or shutil.which("ffmpeg") or "ffmpeg"
         self.vertical = vertical  # True → 1080x1920 Shorts, False → 1280x720 landscape
 
     def record(self, camera: dict, capture_time: datetime) -> str | None:

@@ -1,7 +1,9 @@
 """Captures HLS clips from Ankara bus cameras."""
+import os
 import subprocess
 import shutil
 import sys
+import tempfile
 import time
 import requests
 from datetime import datetime
@@ -18,13 +20,16 @@ class ClipRecorder:
         self.duration = config["schedule"]["clip_duration"]
         self.clips_dir = Path(config["paths"]["clips_dir"])
         self.clips_dir.mkdir(parents=True, exist_ok=True)
-        self.ffmpeg = config.get("ffmpeg_path") or shutil.which("ffmpeg") or "ffmpeg"
+        _ff = config.get("ffmpeg_path") or ""
+        if _ff and not Path(_ff).exists():
+            _ff = ""
+        self.ffmpeg = _ff or shutil.which("ffmpeg") or "ffmpeg"
         self._session = requests.Session()
         self._session.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         self._session.headers["Referer"] = "https://seyret.ankara.bel.tr/"
 
     def _start_relay(self, vehicle: dict) -> bool:
-        """Relay'i başlat, stream hazır olana kadar bekle."""
+        """Relay'i başlat ve m3u8 erişilebilir olana kadar bekle."""
         dvr = vehicle.get("dvr_serial_number", "")
         provider = vehicle.get("source", "ego")
         if not dvr:
@@ -32,12 +37,75 @@ class ClipRecorder:
         try:
             url = RELAY_START_URL.format(dvr=dvr, provider=provider)
             self._session.post(url, timeout=10)
-            time.sleep(10)  # relay başlaması için bekle
-            # stream erişilebilir mi kontrol et
-            r = self._session.head(vehicle["stream_url"], timeout=8, allow_redirects=True)
-            return r.status_code == 200
+            # m3u8 hazır olana kadar bekle (max 15 saniye)
+            stream_url = vehicle["stream_url"]
+            for _ in range(5):
+                time.sleep(3)
+                try:
+                    r = self._session.get(stream_url, timeout=5)
+                    if r.status_code == 200 and "#EXTM3U" in r.text:
+                        return True
+                except Exception:
+                    pass
+            return False
         except Exception:
             return False
+
+    def _download_segments(self, stream_url: str, target_duration: int,
+                           tmp_dir: str) -> list[str]:
+        """
+        m3u8 playlist'ten segmentleri direkt indir.
+        playlist refresh yavaş olduğu için her segmenti tek tek çekiyoruz.
+        Yeterli süre toplanana kadar devam eder.
+        """
+        base = stream_url.rsplit("/", 1)[0] + "/"
+        seen = set()
+        files = []
+        total_duration = 0.0
+        deadline = time.time() + target_duration + 60  # max bekleme
+
+        while total_duration < target_duration and time.time() < deadline:
+            try:
+                r = self._session.get(stream_url, timeout=8)
+                if r.status_code != 200:
+                    time.sleep(2)
+                    continue
+
+                lines = r.text.strip().split("\n")
+                # Segment süre ve URL'lerini parse et
+                i = 0
+                while i < len(lines):
+                    line = lines[i].strip()
+                    if line.startswith("#EXTINF:"):
+                        try:
+                            seg_dur = float(line.split(":")[1].split(",")[0])
+                        except Exception:
+                            seg_dur = 2.0
+                        if i + 1 < len(lines):
+                            seg_name = lines[i + 1].strip()
+                            if seg_name and seg_name not in seen and not seg_name.startswith("#"):
+                                seen.add(seg_name)
+                                seg_url = seg_name if seg_name.startswith("http") else base + seg_name
+                                out_file = os.path.join(tmp_dir, f"seg_{len(files):04d}.ts")
+                                try:
+                                    sr = self._session.get(seg_url, timeout=10)
+                                    if sr.status_code == 200 and len(sr.content) > 1000:
+                                        with open(out_file, "wb") as f:
+                                            f.write(sr.content)
+                                        files.append(out_file)
+                                        total_duration += seg_dur
+                                except Exception:
+                                    pass
+                        i += 2
+                    else:
+                        i += 1
+            except Exception:
+                pass
+
+            if total_duration < target_duration:
+                time.sleep(1)  # yeni segment bekleme
+
+        return files
 
     def record(self, vehicle: dict, capture_time: datetime) -> str | None:
         device_id = vehicle["device_id"]
@@ -50,42 +118,58 @@ class ClipRecorder:
         if not self._start_relay(vehicle):
             return None
 
-        cmd = [
-            self.ffmpeg, "-y",
-            "-i", stream_url,
-            "-t", str(self.duration),
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "23",
-            "-c:a", "aac",
-            "-movflags", "+faststart",
-            # Dikey 9:16 format — otobüs kamerasına göre crop
-            "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,"
-                   "crop=1080:1920",
-            str(out_path)
-        ]
-
         try:
-            result = subprocess.run(cmd, capture_output=True, timeout=90, **_NW)
-            if result.returncode == 0 and out_path.exists():
-                if out_path.stat().st_size > 100_000:  # 100KB minimum
-                    if self._is_frozen(str(out_path)):
-                        print(f"  Donuk video, atlanıyor: {plate}")
-                        out_path.unlink(missing_ok=True)
-                        return None
-                    if not is_interesting(str(out_path), self.ffmpeg, self.duration):
-                        print(f"  AI: ilgisiz sahne, atlanıyor: {plate}")
-                        out_path.unlink(missing_ok=True)
-                        return None
-                    # En iyi kareyi thumbnail olarak kaydet
-                    best_frame(str(out_path), self.ffmpeg, self.duration)
-                    return str(out_path)
-            return None
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                # Segmentleri direkt indir
+                segments = self._download_segments(stream_url, self.duration, tmp_dir)
+
+                if not segments:
+                    return None
+
+                # concat listesi oluştur
+                concat_file = os.path.join(tmp_dir, "concat.txt")
+                with open(concat_file, "w") as f:
+                    for seg in segments:
+                        f.write(f"file '{seg}'\n")
+
+                # ffmpeg ile concat → encode
+                cmd = [
+                    self.ffmpeg, "-y",
+                    "-f", "concat", "-safe", "0",
+                    "-i", concat_file,
+                    "-t", str(self.duration),
+                    "-c:v", "libx264",
+                    "-preset", "fast",
+                    "-crf", "23",
+                    "-c:a", "aac",
+                    "-movflags", "+faststart",
+                    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,"
+                           "crop=1080:1920",
+                    str(out_path)
+                ]
+                result = subprocess.run(cmd, capture_output=True,
+                                        timeout=self.duration + 120, **_NW)
+
+                if result.returncode == 0 and out_path.exists():
+                    if out_path.stat().st_size > 100_000:
+                        if self._is_frozen(str(out_path)):
+                            print(f"  Donuk video, atlanıyor: {plate}")
+                            out_path.unlink(missing_ok=True)
+                            return None
+                        if not is_interesting(str(out_path), self.ffmpeg, self.duration):
+                            print(f"  AI: ilgisiz sahne, atlanıyor: {plate}")
+                            out_path.unlink(missing_ok=True)
+                            return None
+                        best_frame(str(out_path), self.ffmpeg, self.duration)
+                        return str(out_path)
+                return None
+
         except subprocess.TimeoutExpired:
             print(f"  Timeout: {plate}")
+            out_path.unlink(missing_ok=True)
             return None
         except Exception as e:
-            print(f"  FFmpeg hatasi ({plate}): {e}")
+            print(f"  Hata ({plate}): {e}")
             return None
 
     def _is_frozen(self, video_path: str) -> bool:
@@ -93,8 +177,7 @@ class ClipRecorder:
         return self._check_bitrate(video_path) or self._check_frames(video_path)
 
     def _is_boring(self, video_path: str) -> bool:
-        """Sadece yol/tavan gösteren tekdüze görüntüleri filtrele.
-        PNG sıkıştırması düşükse görüntü çok tekdüze demektir."""
+        """Sadece yol/tavan gösteren tekdüze görüntüleri filtrele."""
         import tempfile, os
         try:
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
@@ -106,8 +189,6 @@ class ClipRecorder:
                 return False
             png_kb = Path(tmp).stat().st_size / 1024
             os.unlink(tmp)
-            # 1080x1920 gerçek sahne için PNG genellikle 400KB+
-            # Sadece yol/tavan görüntüsü ~266KB, normal sahne ~500KB+
             return png_kb < 300
         except Exception:
             return False
@@ -130,8 +211,6 @@ class ClipRecorder:
                 return False
             edge_kb = Path(tmp).stat().st_size / 1024
             os.unlink(tmp)
-            # Keskin görüntüde kenar PNG'si büyük olur (çok kenar = çok detay)
-            # Bulanık/yağmurlu lens'te kenar neredeyse yok → çok küçük PNG
             return edge_kb < 25
         except Exception:
             return False
