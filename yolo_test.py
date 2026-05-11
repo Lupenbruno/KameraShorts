@@ -316,9 +316,8 @@ def _run(q: queue.Queue):
                 try: os.unlink(fp)
                 except: pass
 
-        put(f"\n  TOPLAM SKOR : {total} puan")
-        put(f"  EŞİK       : {MIN_SCORE} puan")
         geçti = total >= MIN_SCORE
+        put(f"\n  TOPLAM SKOR : {total} puan  (eşik: {MIN_SCORE})")
         if geçti:
             put(f"  KARAR: ✅ GEÇTİ — YouTube'a yüklenebilir")
         else:
