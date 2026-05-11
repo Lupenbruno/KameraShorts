@@ -29,8 +29,8 @@ OBJECT_SCORES = {
     60: 1,   # dining table (kaldırım masası, dış mekan kafe)
 }
 
-MIN_SCORE   = 4    # Zemin/damper/tavan → 0, tek nesne yetmez, sokak sahnesi gerekli
-CONF_THRESH = 0.30 # Güven eşiği
+MIN_SCORE   = 2    # Herhangi bir nesne tespiti = sokak sahnesi (zemin/damper/tavan → 0)
+CONF_THRESH = 0.25 # Güven eşiği — biraz düşürüldü, uzaktaki nesneler de yakalansın
 
 _model = None
 _available = None
@@ -64,8 +64,8 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
     if not _load_model():
         return 99  # AI yoksa hep geçir
 
-    step = max(3, duration // 4)
-    timestamps = [step, step * 2, step * 3]
+    step = max(2, duration // 6)
+    timestamps = [step, step * 2, step * 3, step * 4, step * 5]
     total = 0
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -163,8 +163,8 @@ def best_frame(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> s
     vf = ("scale=1280:720:force_original_aspect_ratio=decrease,"
           "pad=1280:720:(ow-iw)/2:(oh-ih)/2")
 
-    step = max(3, duration // 4)
-    timestamps = [step, step * 2, step * 3]
+    step = max(2, duration // 6)
+    timestamps = [step, step * 2, step * 3, step * 4, step * 5]
 
     if not _load_model():
         # YOLO yoksa ortadaki kareyi al
