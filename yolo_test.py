@@ -262,6 +262,9 @@ def _run(q: queue.Queue):
         put(f"{'═'*52}")
 
         from src.ai_filter import _load_model, OBJECT_SCORES, CONF_THRESH, MIN_SCORE
+        # Test paneli 5 kare analiz ediyor, pipeline sadece 1 kare bakıyor.
+        # Eşiği kare sayısıyla orantılı tut (5x).
+        PANEL_MIN_SCORE = MIN_SCORE * 5  # 4 × 5 = 20
         yolo_ok = _load_model()
 
         if not yolo_ok:
@@ -316,8 +319,8 @@ def _run(q: queue.Queue):
                 try: os.unlink(fp)
                 except: pass
 
-        geçti = total >= MIN_SCORE
-        put(f"\n  TOPLAM SKOR : {total} puan  (eşik: {MIN_SCORE})")
+        geçti = total >= PANEL_MIN_SCORE
+        put(f"\n  TOPLAM SKOR : {total} puan  (eşik: {PANEL_MIN_SCORE})")
         if geçti:
             put(f"  KARAR: ✅ GEÇTİ — YouTube'a yüklenebilir")
         else:
