@@ -14,19 +14,22 @@ from pathlib import Path
 log = logging.getLogger("kamerashorts")
 
 # COCO sınıflarından sokak/trafik için puanlar
+# Otobüs/kamyon kameralarında zemin, damper içi, tavan → 0 puan → elenir
 OBJECT_SCORES = {
     0:  3,   # person
     1:  2,   # bicycle
-    2:  2,   # car
+    2:  3,   # car  (daha değerli — sokak sahnesini garantiler)
     3:  2,   # motorcycle
-    5:  2,   # bus
+    5:  4,   # bus  (EGO otobüsü görünüyorsa kesinlikle sokak)
     7:  2,   # truck
     9:  1,   # traffic light
     11: 1,   # stop sign
     13: 1,   # bench
+    56: 1,   # chair (durak/bekleme alanı)
+    60: 1,   # dining table (kaldırım masası, dış mekan kafe)
 }
 
-MIN_SCORE   = 1    # Bu skorun altı → elenir
+MIN_SCORE   = 4    # Zemin/damper/tavan → 0, tek nesne yetmez, sokak sahnesi gerekli
 CONF_THRESH = 0.30 # Güven eşiği
 
 _model = None
