@@ -116,6 +116,7 @@ class KameraShortsApp:
             speed  = vehicle.get("speed", 0)
             vtype  = metadata.get("title", "").split()[0] if metadata else ""
             yolo_desc = describe_clip(clip_path, self.recorder.ffmpeg, self.config["schedule"]["clip_duration"])
+            self.log.info(f"[{plate}] YOLO TTS: {repr(yolo_desc)}")
             tts_text = (
                 f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
                 f" Otobüs {speed} kilometre hızla ilerliyor."
@@ -184,6 +185,7 @@ class KameraShortsApp:
             # Ambient + TTS ses ekle
             speed     = vehicle.get("speed", 0)
             yolo_desc = describe_clip(clip_path, self.recorder.ffmpeg, self.config["schedule"]["clip_duration"])
+            self.log.info(f"[{plate}] YOLO TTS: {repr(yolo_desc)}")
             tts_text  = (
                 f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
                 f" Otobüs {speed} kilometre hızla ilerliyor."
