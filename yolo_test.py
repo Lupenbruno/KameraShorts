@@ -375,7 +375,7 @@ def _run(q: queue.Queue):
         put(f"{'═'*52}")
 
         from src.ai_filter import _load_model, OBJECT_SCORES, CONF_THRESH, MIN_SCORE
-        PANEL_MIN_SCORE = MIN_SCORE * 5
+        PANEL_MIN_SCORE = MIN_SCORE * 3  # 12 — gercek pipeline 1 kare/4p, biz 5 kare/12p
         yolo_ok = _load_model()
 
         geçti = True  # YOLO yoksa geçir
@@ -427,6 +427,9 @@ def _run(q: queue.Queue):
 
             geçti = total >= PANEL_MIN_SCORE
             put(f"\n  TOPLAM SKOR : {total} puan  (eşik: {PANEL_MIN_SCORE})")
+            # Gece görüşü uyarısı (gri/siyah-beyaz video)
+            if not geçti and total >= MIN_SCORE:
+                put(f"  ⚠️  Not: Gece görüşü / gri ton → YOLO hassasiyeti düşük olabilir")
             put(f"  KARAR: {'✅ GEÇTİ — pipeline yükler' if geçti else '❌ ELENDİ — kalite yetersiz'}")
             put(f"{'═'*52}")
         else:
