@@ -99,8 +99,30 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
     return total
 
 
+def _sky_bonus(frame_path: str) -> int:
+    """Çerçevenin üst 1/3'ü parlaksa gökyüzü görünüyor → +3 puan bonus.
+
+    Kamera zemine değil ileriye/yukarıya bakıyor demektir.
+    PIL/numpy yoksa 0 döner (sessizce atlar).
+    """
+    try:
+        from PIL import Image
+        import numpy as np
+        img = Image.open(frame_path).convert("L")  # gri tonlama
+        arr = np.array(img)
+        h = arr.shape[0]
+        top_mean = arr[: h // 3].mean()   # üst 1/3 ortalama parlaklık
+        # Gökyüzü / gün ışığı tipik olarak >90 (0-255 skala)
+        # Zemine bakan kamerada üst 1/3 de yol/asfalt → daha karanlık
+        bonus = 3 if top_mean > 90 else 0
+        log.debug(f"Gökyüzü bonusu: üst parlaklık={top_mean:.1f} → +{bonus}p")
+        return bonus
+    except Exception:
+        return 0
+
+
 def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
-    """Stream URL'den 1 kare çek, YOLO ile kontrol et.
+    """Stream URL'den 1 kare çek, YOLO + gökyüzü kontrolü yap.
 
     Kayıt başlamadan önce çağrılır — zemin/damper/karanlık ise False döner.
     YOLO yoksa her zaman True döner (geçir).
@@ -139,6 +161,9 @@ def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
                     score += OBJECT_SCORES.get(int(cls_id), 0)
         except Exception:
             return True
+
+        # Gökyüzü görünüyorsa kamera açısı doğru → bonus puan
+        score += _sky_bonus(frame)
 
     passed = score >= MIN_SCORE
     log.info(f"Ön kontrol: {score}p → {'GEÇTI' if passed else 'ELENDİ (zemin/damper/karanlık)'}")

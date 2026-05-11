@@ -269,10 +269,11 @@ def _run(q: queue.Queue):
             q.put(f"__VIDEO_PASS__:{out_path.name}")
             return
 
-        from src.ai_filter import _model
-        step       = max(2, 20 // 4)
-        timestamps = [step, step * 2, step * 3]
+        from src.ai_filter import _model, _sky_bonus
+        step       = max(2, 20 // 6)
+        timestamps = [step, step * 2, step * 3, step * 4, step * 5]
         total      = 0
+        sky_pts    = 0
 
         for i, t in enumerate(timestamps):
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
@@ -299,6 +300,13 @@ def _run(q: queue.Queue):
                         fs    += pts
                         name   = COCO.get(cls_id, f"cls{cls_id}")
                         dets.append(f"{name}({conf:.0%}+{pts}p)")
+
+                # Gökyüzü bonusu — sadece ilk kare için hesapla
+                if i == 0:
+                    sky_pts = _sky_bonus(fp)
+                    if sky_pts:
+                        dets.append(f"🌤️ gökyüzü(+{sky_pts}p)")
+                        fs += sky_pts
 
                 total += fs
                 det_str = ", ".join(dets) if dets else "— tespit yok"
