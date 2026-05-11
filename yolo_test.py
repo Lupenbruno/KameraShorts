@@ -1,5 +1,5 @@
 """Ankara Pipeline Test Paneli — kayıt → YOLO → geocoder → başlık → hava → ses/overlay → önizleme."""
-import os, queue, shutil, subprocess, sys, tempfile, threading
+import os, queue, random, shutil, subprocess, sys, tempfile, threading
 from datetime import datetime
 from pathlib import Path
 
@@ -290,9 +290,16 @@ def _run(q: queue.Queue):
         put(f"  {len(cams)} aktif kamera")
 
         TYPE_PRIORITY = {"Solo": 0, "Körüklü": 1, "ELK": 2}
-        sorted_cams = sorted(cams, key=lambda c: TYPE_PRIORITY.get((c.get("vehicle_type") or "").strip(), 99))
+        # Önce türe göre grupla, sonra her grup içinde karıştır
+        solo    = [c for c in cams if (c.get("vehicle_type") or "").strip() == "Solo"]
+        korklu  = [c for c in cams if (c.get("vehicle_type") or "").strip() == "Körüklü"]
+        elk     = [c for c in cams if (c.get("vehicle_type") or "").strip() == "ELK"]
+        diger   = [c for c in cams if (c.get("vehicle_type") or "").strip() not in TYPE_PRIORITY]
+        random.shuffle(solo); random.shuffle(korklu)
+        random.shuffle(elk);  random.shuffle(diger)
+        sorted_cams = solo + korklu + elk + diger
 
-        put(f"\n📋  İlk 15 Kamera (öncelik sırası)")
+        put(f"\n📋  İlk 15 Kamera (rastgele karıştırıldı)")
         put("─" * 56)
         for c in sorted_cams[:15]:
             plate = c.get("license_plate", "?")
