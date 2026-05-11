@@ -16,17 +16,19 @@ log = logging.getLogger("kamerashorts")
 # COCO sınıflarından sokak/trafik için puanlar
 # Otobüs/kamyon kameralarında zemin, damper içi, tavan → 0 puan → elenir
 OBJECT_SCORES = {
-    0:  3,   # person
+    # person skoru düşürüldü — otobüs kamerası alt karede her zaman yolcu görür
+    # Araç/otobüs tespiti çok daha güvenilir "sokak sahnesi" göstergesi
+    0:  1,   # person (1'e düşürüldü — otobüs yolcusu false positive'e karşı)
     1:  2,   # bicycle
-    2:  3,   # car  (daha değerli — sokak sahnesini garantiler)
+    2:  3,   # car
     3:  2,   # motorcycle
-    5:  4,   # bus  (EGO otobüsü görünüyorsa kesinlikle sokak)
+    5:  4,   # bus
     7:  2,   # truck
     9:  1,   # traffic light
     11: 1,   # stop sign
     13: 1,   # bench
-    56: 1,   # chair (durak/bekleme alanı)
-    60: 1,   # dining table (kaldırım masası, dış mekan kafe)
+    56: 1,   # chair
+    60: 1,   # dining table
 }
 
 MIN_SCORE   = 4    # Zemin/damper → 0, tek uzak araç yetmez; sokak sahnesi gerekli
@@ -76,7 +78,7 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
                 "-i", video_path,
                 "-frames:v", "1",
                 "-q:v", "3",
-                "-vf", "scale=640:-1",
+                "-vf", "scale=640:-1,crop=iw:ih*0.75:0:0",
                 frame
             ]
             _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
@@ -160,7 +162,8 @@ def describe_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -
             try:
                 subprocess.run(
                     [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
-                     "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-1", frame],
+                     "-frames:v", "1", "-q:v", "3",
+                     "-vf", "scale=640:-1,crop=iw:ih*0.75:0:0", frame],
                     capture_output=True, timeout=10, **_NW
                 )
             except Exception:
@@ -249,7 +252,7 @@ def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
             "-frames:v", "1",
             "-ss", "2",
             "-q:v", "4",
-            "-vf", "scale=640:-1",
+            "-vf", "scale=640:-1,crop=iw:ih*0.75:0:0",
             frame
         ]
         try:
