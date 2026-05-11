@@ -113,9 +113,20 @@ function startTest() {
       btn.disabled = false;
       return;
     }
-    if (msg.startsWith('__VIDEO__:')) {
+    if (msg.startsWith('__VIDEO_PASS__:') || msg.startsWith('__VIDEO_FAIL__:')) {
+      const passed = msg.startsWith('__VIDEO_PASS__:');
       currentFile = msg.split(':')[1];
       document.getElementById('player').src = '/yolo-test/video/' + currentFile;
+      const h2 = document.querySelector('#video-wrap h2');
+      if (passed) {
+        h2.textContent = '✅ Geçen Video — pipeline bu videoyu yükler';
+        h2.style.color = '#69ff47';
+        document.getElementById('player').style.border = '2px solid #69ff47';
+      } else {
+        h2.textContent = '❌ Elenen Video — pipeline bu videoyu ATMAZ';
+        h2.style.color = '#ff5252';
+        document.getElementById('player').style.border = '2px solid #ff5252';
+      }
       wrap.style.display = 'block';
       return;
     }
@@ -272,7 +283,7 @@ def _run(q: queue.Queue):
 
         if not yolo_ok:
             put("⚠️   YOLO yüklü değil — sadece video kaydedildi.")
-            q.put(f"__VIDEO__:{out_path.name}")
+            q.put(f"__VIDEO_PASS__:{out_path.name}")
             return
 
         from src.ai_filter import _model
@@ -323,7 +334,7 @@ def _run(q: queue.Queue):
             put(f"  KARAR: ❌ ELENDİ — Kalite yetersiz (zemin/damper/karanlık)")
         put(f"{'═'*52}")
 
-        q.put(f"__VIDEO__:{out_path.name}")
+        q.put(f"__VIDEO_PASS__:{out_path.name}" if geçti else f"__VIDEO_FAIL__:{out_path.name}")
 
     except Exception as e:
         import traceback
