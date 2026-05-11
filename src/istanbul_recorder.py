@@ -13,7 +13,10 @@ class IstanbulRecorder:
         self.duration = config.get("istanbul", {}).get("clip_duration", 180)  # 3 dakika
         self.clips_dir = Path(config["paths"]["istanbul_clips_dir"])
         self.clips_dir.mkdir(parents=True, exist_ok=True)
-        self.ffmpeg = config.get("ffmpeg_path") or shutil.which("ffmpeg") or "ffmpeg"
+        _ff = config.get("ffmpeg_path") or ""
+        if _ff and not Path(_ff).exists():
+            _ff = ""
+        self.ffmpeg = _ff or shutil.which("ffmpeg") or "ffmpeg"
 
     def record(self, camera: dict, capture_time: datetime) -> str | None:
         cam_id = camera["id"]
@@ -24,6 +27,7 @@ class IstanbulRecorder:
         # Landscape format, 1280x720 — turistik kamera görseli için yeterli
         cmd = [
             self.ffmpeg, "-y",
+            "-tls_verify", "0",      # SSL sertifika doğrulamasını atla (IBB sertifikası)
             "-i", stream_url,
             "-t", str(self.duration),
             "-c:v", "libx264",
@@ -37,7 +41,7 @@ class IstanbulRecorder:
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, timeout=self.duration + 60, **_NW)
+            result = subprocess.run(cmd, capture_output=True, timeout=self.duration + 90, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 500_000:  # 500KB minimum
                     if self._is_frozen(str(out_path)):

@@ -73,7 +73,11 @@ class KameraShortsApp:
         self.uploader = YouTubeUploader(self.config)
         self.mixer = AudioMixer(self.config)
         self.notifier = TelegramNotifier(self.config)
-        self.scorer = CameraScorer(ffmpeg_path=self.config.get("ffmpeg_path", "ffmpeg"))
+        import shutil as _shutil
+        _ff = self.config.get("ffmpeg_path") or ""
+        if _ff and not Path(_ff).exists():
+            _ff = ""
+        self.scorer = CameraScorer(ffmpeg_path=_ff or _shutil.which("ffmpeg") or "ffmpeg")
 
     def record_only(self, count: int = 1):
         """Sadece klip çeker ve meta.json kaydeder. Upload yapmaz."""

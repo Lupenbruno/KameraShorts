@@ -11,7 +11,10 @@ _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" 
 
 class AudioMixer:
     def __init__(self, config: dict):
-        self.ffmpeg = config.get("ffmpeg_path") or shutil.which("ffmpeg") or "ffmpeg"
+        _ff = config.get("ffmpeg_path") or ""
+        if _ff and not Path(_ff).exists():
+            _ff = ""
+        self.ffmpeg = _ff or shutil.which("ffmpeg") or "ffmpeg"
 
     def _generate_tts(self, text: str, out_mp3: str) -> bool:
         """Microsoft Edge neural TTS ile Türkçe ses üret."""
