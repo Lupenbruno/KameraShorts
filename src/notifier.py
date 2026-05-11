@@ -7,7 +7,7 @@ from pathlib import Path
 
 log = logging.getLogger("notifier")
 
-_START_COOLDOWN = 3600   # saniye — aynı şehir için min. bu kadar bekle
+_START_COOLDOWN = 21600  # saniye — 6 saat, aynı şehir için min. bu kadar bekle
 _last_started: dict = {}  # city → epoch
 
 
