@@ -1,4 +1,4 @@
-"""Ambient ses + TTS anons ekler."""
+"""Ambient ses + TTS anons + hava durumu overlay ekler."""
 import subprocess
 import shutil
 import sys
@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+
+FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
 class AudioMixer:
@@ -28,52 +30,100 @@ class AudioMixer:
         except Exception:
             return False
 
-    def add_audio(self, video_path: str, metadata: dict, location: str) -> str:
-        """Videoya ambient + TTS sesi ekle, yeni dosya döndür."""
-        # tts_text doğrudan verilmişse kullan, yoksa title'dan türet
+    def _weather_drawtext(self, weather: dict, city: str) -> str:
+        """Sağ üst köşe için FFmpeg drawtext filtresi üret.
+
+        Örnek çıktı: Ankara  |  Acik  22C
+        Emoji kullanmıyoruz — FFmpeg font desteği kısıtlı.
+        """
+        if not weather:
+            return ""
+        temp = weather["temp"]
+        cond = weather["condition"]          # "az bulutlu", "açık" vb.
+        city_short = city.split()[0]         # "Çorum Merkez" → "Çorum"
+
+        # Türkçe karakter sorununu önlemek için basit ASCII'ye dönüştür
+        tr_map = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosucgiosu")
+        cond_safe = cond.translate(tr_map)
+        city_safe = city_short.translate(tr_map)
+
+        text = f"{city_safe}  |  {cond_safe}  {temp}C"
+        font = FONT_PATH if Path(FONT_PATH).exists() else "DejaVuSans-Bold"
+
+        return (
+            f"drawtext=text='{text}':"
+            f"fontfile={font}:"
+            f"fontcolor=white:fontsize=26:"
+            f"x=w-tw-18:y=18:"
+            f"box=1:boxcolor=black@0.45:boxborderw=8"
+        )
+
+    def add_audio(self, video_path: str, metadata: dict, location: str,
+                  weather: dict = None) -> str:
+        """Videoya ambient + TTS sesi ve isteğe bağlı hava durumu overlay'i ekle."""
+        city = metadata.get("city", location.split(",")[-1].strip())
+
+        # TTS metni — hava durumunu da okuyoruz
         if metadata.get("tts_text"):
             tts_text = metadata["tts_text"]
         else:
             title = metadata.get("title", "")
             tts_text = title.replace("#Shorts", "").replace(" - ", ". ").strip()
 
-        video = Path(video_path)
+        if weather:
+            tts_text += f" Hava {weather['condition']}, {weather['temp']} derece."
+
+        video    = Path(video_path)
         out_path = video.parent / (video.stem + "_audio.mp4")
+        drawtext = self._weather_drawtext(weather, city) if weather else ""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tts_wav = os.path.join(tmp_dir, "tts.mp3")
-            tts_ok = self._generate_tts(tts_text, tts_wav)
+            tts_ok  = self._generate_tts(tts_text, tts_wav)
 
-            # Video ses kanalı var mı kontrol et
-            probe = subprocess.run([self.ffmpeg, "-i", str(video)], capture_output=True, text=True, **_NW)
+            # Video ses kanalı var mı?
+            probe     = subprocess.run([self.ffmpeg, "-i", str(video)],
+                                       capture_output=True, text=True, **_NW)
             has_audio = "Audio" in probe.stderr
+
+            # Video filtresi — overlay varsa yeniden encode, yoksa copy
+            if drawtext:
+                vcodec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
+                vf_arg      = ["-vf", drawtext]
+            else:
+                vcodec_args = ["-c:v", "copy"]
+                vf_arg      = []
 
             if tts_ok:
                 if has_audio:
-                    # Orijinal ses + TTS, gürültü yok
-                    audio_filter = "[0:a]volume=0.9[orig];[1:a]volume=1.6,adelay=500|500[tts];[orig][tts]amix=inputs=2:duration=first[out]"
+                    af = "[0:a]volume=0.9[orig];[1:a]volume=1.6,adelay=500|500[tts];[orig][tts]amix=inputs=2:duration=first[out]"
                 else:
-                    # TTS + çok kısık pembe gürültü arka plan (0.02 = neredeyse duyulmaz)
-                    audio_filter = "anoisesrc=c=pink:r=44100,volume=0.02[amb];[1:a]volume=1.6,adelay=500|500[tts];[amb][tts]amix=inputs=2:duration=longest[out]"
-                cmd = [
-                    self.ffmpeg, "-y",
-                    "-i", str(video), "-i", tts_wav,
-                    "-filter_complex", audio_filter,
-                    "-map", "0:v", "-map", "[out]",
-                    "-c:v", "copy", "-c:a", "aac", "-shortest",
-                    str(out_path)
-                ]
+                    af = "anoisesrc=c=pink:r=44100,volume=0.02[amb];[1:a]volume=1.6,adelay=500|500[tts];[amb][tts]amix=inputs=2:duration=longest[out]"
+                cmd = (
+                    [self.ffmpeg, "-y", "-i", str(video), "-i", tts_wav]
+                    + ["-filter_complex", af]
+                    + vf_arg
+                    + ["-map", "0:v", "-map", "[out]"]
+                    + vcodec_args
+                    + ["-c:a", "aac", "-shortest", str(out_path)]
+                )
             else:
                 if has_audio:
-                    # Sadece orijinal ses, gürültü yok
-                    cmd = [self.ffmpeg, "-y", "-i", str(video),
-                           "-map", "0:v", "-map", "0:a",
-                           "-c:v", "copy", "-c:a", "aac", str(out_path)]
+                    cmd = (
+                        [self.ffmpeg, "-y", "-i", str(video)]
+                        + vf_arg
+                        + ["-map", "0:v", "-map", "0:a"]
+                        + vcodec_args
+                        + ["-c:a", "aac", str(out_path)]
+                    )
                 else:
-                    # Ses yok, sessiz video
-                    cmd = [self.ffmpeg, "-y", "-i", str(video),
-                           "-map", "0:v", "-an",
-                           "-c:v", "copy", str(out_path)]
+                    cmd = (
+                        [self.ffmpeg, "-y", "-i", str(video)]
+                        + vf_arg
+                        + ["-map", "0:v", "-an"]
+                        + vcodec_args
+                        + [str(out_path)]
+                    )
 
             result = subprocess.run(cmd, capture_output=True, timeout=300, **_NW)
             if result.returncode == 0 and out_path.exists():
@@ -82,4 +132,4 @@ class AudioMixer:
                 shutil.move(str(out_path), str(video))
                 return str(video)
 
-        return str(video)  # hata olursa orjinali döndür
+        return str(video)

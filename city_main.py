@@ -142,7 +142,7 @@ class CityApp:
                 f"{turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
             )
             metadata["tts_text"] = tts_text
-            clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"])
+            clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"], weather=weather)
             self.log.info(f"[{cam_name}] ses eklendi")
 
             if upload:
@@ -205,7 +205,7 @@ class CityApp:
                 f"{turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
             )
             metadata["tts_text"] = tts_text
-            clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"])
+            clip_path = self.mixer.add_audio(clip_path, metadata, camera["location"], weather=weather)
 
             meta = {k: v for k, v in metadata.items() if k != "tts_text"}
             meta.update({

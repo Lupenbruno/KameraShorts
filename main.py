@@ -114,7 +114,7 @@ class KameraShortsApp:
 
             tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
             metadata["tts_text"] = tts_text
-            clip_path = self.mixer.add_audio(clip_path, metadata, location)
+            clip_path = self.mixer.add_audio(clip_path, metadata, location, weather=weather)
             self.log.info(f"[{plate}] ses eklendi")
 
             meta = {k: v for k, v in metadata.items() if k != "tts_text"}
@@ -176,7 +176,7 @@ class KameraShortsApp:
             # Ambient + TTS ses ekle
             tts_text = f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
             metadata["tts_text"] = tts_text
-            clip_path = self.mixer.add_audio(clip_path, metadata, location)
+            clip_path = self.mixer.add_audio(clip_path, metadata, location, weather=weather)
             self.log.info(f"[{plate}] ses eklendi")
 
             # YouTube'a yükle
