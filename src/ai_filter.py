@@ -41,7 +41,8 @@ def _dynamic_min_score(brightness: float) -> int:
 
 # CLAHE kontrastlı kare çekme filtresi
 # eq=contrast: IR görüntüde nesne sınırlarını belirginleştirir
-_VF_YOLO = "scale=640:-1,crop=iw:ih*0.75:0:0,eq=contrast=1.4:brightness=0.05"
+_VF_YOLO   = "scale=640:-1,crop=iw:ih*0.75:0:0,eq=contrast=1.4:brightness=0.05"
+_VF_BRIGHT = "scale=320:-1,crop=iw:ih*0.75:0:0"   # kontrastsız — doğru parlaklık ölçümü için
 
 # COCO sınıflarından sokak/trafik için puanlar
 # Otobüs/kamyon kameralarında zemin, damper içi, tavan → 0 puan → elenir
@@ -103,6 +104,19 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> t
     first_brightness = 128.0
 
     with tempfile.TemporaryDirectory() as tmp:
+        # Parlaklığı kontrastsız ham kareden ölç (eq filtresi değeri şişirmesin)
+        bright_frame = os.path.join(tmp, "bright.jpg")
+        try:
+            subprocess.run(
+                [ffmpeg, "-y", "-ss", str(step), "-i", video_path,
+                 "-frames:v", "1", "-q:v", "4", "-vf", _VF_BRIGHT, bright_frame],
+                capture_output=True, timeout=10, **_NW
+            )
+            if Path(bright_frame).exists():
+                first_brightness = _brightness(bright_frame)
+        except Exception:
+            pass
+
         for i, t in enumerate(timestamps):
             frame = os.path.join(tmp, f"frame_{i}.jpg")
             cmd = [ffmpeg, "-y", "-ss", str(t), "-i", video_path,
@@ -113,9 +127,6 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> t
                 continue
             if not Path(frame).exists():
                 continue
-            # İlk karedeki parlaklığı ölç (dinamik eşik için)
-            if i == 0:
-                first_brightness = _brightness(frame)
             try:
                 results = _model(frame, conf=CONF_THRESH, verbose=False)
                 for r in results:
@@ -125,7 +136,7 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> t
                 log.debug(f"YOLO kare analiz hatasi: {e}")
 
     dyn_min = _dynamic_min_score(first_brightness)
-    log.debug(f"score_clip: toplam={total}, parlaklik={first_brightness:.0f}, esik={dyn_min}")
+    log.info(f"score_clip: toplam={total}, parlaklik={first_brightness:.0f}, esik={dyn_min}")
     return total, dyn_min
 
 
@@ -276,11 +287,12 @@ def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
 
         # Gökyüzü görünüyorsa kamera açısı doğru → bonus puan
         score += _sky_bonus(frame)
-        # Dinamik eşik — gece IR modunda daha düşük
-        dyn_min = _dynamic_min_score(_brightness(frame))
+        # eq=brightness=0.05 filtresi ~13 birim şişiriyor → geri al → gerçek parlaklık
+        raw_brightness = max(0.0, _brightness(frame) - 13.0)
+        dyn_min = _dynamic_min_score(raw_brightness)
 
     passed = score >= dyn_min
-    log.info(f"Ön kontrol: {score}p (esik:{dyn_min}) → {'GECTI' if passed else 'ELENDI'}")
+    log.info(f"Ön kontrol: {score}p (esik:{dyn_min}, parlaklik:{raw_brightness:.0f}) → {'GECTI' if passed else 'ELENDI'}")
     return passed
 
 
