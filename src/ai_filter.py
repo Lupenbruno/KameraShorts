@@ -100,22 +100,26 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> i
 
 
 def _sky_bonus(frame_path: str) -> int:
-    """Çerçevenin üst 1/3'ü parlaksa gökyüzü görünüyor → +3 puan bonus.
+    """Üst 1/3'te gökyüzü var mı?
 
-    Kamera zemine değil ileriye/yukarıya bakıyor demektir.
+    Gökyüzü = mavi kanal, yol/asfalt = gri (R≈G≈B).
+    Mavi - kırmızı farkı >15 ise gökyüzü → +3 puan.
     PIL/numpy yoksa 0 döner (sessizce atlar).
     """
     try:
         from PIL import Image
         import numpy as np
-        img = Image.open(frame_path).convert("L")  # gri tonlama
+        img = Image.open(frame_path).convert("RGB")
         arr = np.array(img)
         h = arr.shape[0]
-        top_mean = arr[: h // 3].mean()   # üst 1/3 ortalama parlaklık
-        # Gökyüzü / gün ışığı tipik olarak >90 (0-255 skala)
-        # Zemine bakan kamerada üst 1/3 de yol/asfalt → daha karanlık
-        bonus = 3 if top_mean > 90 else 0
-        log.debug(f"Gökyüzü bonusu: üst parlaklık={top_mean:.1f} → +{bonus}p")
+        top = arr[: h // 3]          # üst 1/3
+        r_mean = top[:, :, 0].mean()
+        g_mean = top[:, :, 1].mean()
+        b_mean = top[:, :, 2].mean()
+        # Gökyüzü: mavi baskın VE yeterince parlak (çok karanlık değil)
+        is_sky = (b_mean - r_mean > 15) and (b_mean > 80)
+        bonus = 3 if is_sky else 0
+        log.debug(f"Gökyüzü: R={r_mean:.0f} G={g_mean:.0f} B={b_mean:.0f} → +{bonus}p")
         return bonus
     except Exception:
         return 0
