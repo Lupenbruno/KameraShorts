@@ -30,6 +30,9 @@ CLIPS_K = Path("data/konya_clips")
 app = Flask(__name__)
 _daemons = {"ankara": None, "istanbul": None, "corum": None, "konya": None}
 
+from yolo_test import yolo_bp
+app.register_blueprint(yolo_bp)
+
 @app.before_request
 def check_auth():
     auth = request.headers.get("Authorization", "")
@@ -242,6 +245,7 @@ body{background:#0e0e0e;color:#d0d0d0;font-family:'Segoe UI',system-ui,sans-seri
   <div class="logo">Asfalt<b>TV</b></div>
   <div class="spacer"></div>
   <div class="next-badge">Sonraki yayın: <b id="next-time">—</b></div>
+  <a href="/yolo-test" target="_blank" style="margin-left:16px;padding:6px 16px;background:#1a1a1a;border:1px solid #00e5ff;color:#00e5ff;border-radius:6px;font-size:.85rem;text-decoration:none;">🤖 YOLO Test</a>
 </div>
 
 <div class="main">
