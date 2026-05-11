@@ -66,7 +66,7 @@ class TitleGenerator:
         if weather:
             tags.append(weather["tag_str"])
             if weather["is_snow"]:
-                tags += ["karankara", "karyanağıyor", "snowankara"]
+                tags += ["karankara", "karyağıyor", "snowankara"]
             if weather["is_rain"]:
                 tags += ["yağmurankara", "yağmurlu"]
 

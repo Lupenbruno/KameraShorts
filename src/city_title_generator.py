@@ -70,7 +70,7 @@ class CityTitleGenerator:
         if weather:
             tags.append(weather["tag_str"])
             if weather["is_snow"]:
-                tags += [f"kar{self.city_name.lower()}", "karyanağıyor", "snowturkiye"]
+                tags += [f"kar{self.city_name.lower()}", "karyağıyor", "snowturkiye"]
             if weather["is_rain"]:
                 tags += [f"yağmur{self.city_name.lower()}", "yağmurlu"]
 
