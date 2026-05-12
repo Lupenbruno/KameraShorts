@@ -503,8 +503,10 @@ def _run(q: queue.Queue):
         # ── 8. TTS + Overlay ─────────────────────────────────────────────────
         put(f"\n🔊  Ses ve overlay ekleniyor...")
         speed = selected.get("speed", 0)
-        if speed:
+        if speed and float(speed) > 0:
             tts_text += f" Otobüs {speed} kilometre hızla ilerliyor."
+        else:
+            tts_text += " Hız verisi şu an mevcut değil."
         metadata["tts_text"] = tts_text
         put(f"  TTS: \"{tts_text[:110]}...\"" if len(tts_text) > 110 else f"  TTS: \"{tts_text}\"")
         if weather:

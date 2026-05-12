@@ -114,9 +114,13 @@ class KameraShortsApp:
 
             speed  = vehicle.get("speed", 0)
             vtype  = metadata.get("title", "").split()[0] if metadata else ""
+            if speed and float(speed) > 0:
+                speed_text = f" Otobüs {speed} kilometre hızla ilerliyor."
+            else:
+                speed_text = " Hız verisi şu an mevcut değil."
             tts_text = (
                 f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
-                f" Otobüs {speed} kilometre hızla ilerliyor."
+                f"{speed_text}"
             )
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, location, weather=weather)
@@ -180,9 +184,13 @@ class KameraShortsApp:
 
             # Ambient + TTS ses ekle
             speed     = vehicle.get("speed", 0)
+            if speed and float(speed) > 0:
+                speed_text = f" Otobüs {speed} kilometre hızla ilerliyor."
+            else:
+                speed_text = " Hız verisi şu an mevcut değil."
             tts_text  = (
                 f"{location}. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
-                f" Otobüs {speed} kilometre hızla ilerliyor."
+                f"{speed_text}"
             )
             metadata["tts_text"] = tts_text
             clip_path = self.mixer.add_audio(clip_path, metadata, location, weather=weather)
