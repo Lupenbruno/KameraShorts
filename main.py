@@ -207,8 +207,6 @@ class KameraShortsApp:
                     self.uploader.add_to_queue(clip_path, metadata)
             else:
                 self.log.info(f"[{plate}] clip hazır (upload atlandı): {clip_path}")
-                import subprocess as sp, sys
-                sp.Popen([clip_path], shell=True)
                 used_plates.add(plate)
                 _save_used_plates(used_plates)
                 success += 1
