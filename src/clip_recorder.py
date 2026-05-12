@@ -8,7 +8,7 @@ import time
 import requests
 from datetime import datetime
 from pathlib import Path
-from src.ai_filter import quick_check, best_frame
+from src.ai_filter import quick_check, best_frame, is_interesting
 
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
@@ -172,6 +172,11 @@ class ClipRecorder:
                     if out_path.stat().st_size > 100_000:
                         if self._is_frozen(str(out_path)):
                             print(f"  Donuk video, atlanıyor: {plate}")
+                            out_path.unlink(missing_ok=True)
+                            return None
+                        # Post-kayıt YOLO kontrolü — 5 kare ile tam analiz
+                        if not is_interesting(str(out_path), self.ffmpeg, self.duration):
+                            print(f"  [{plate}] YOLO post-kayıt elendi, atlanıyor")
                             out_path.unlink(missing_ok=True)
                             return None
                         best_frame(str(out_path), self.ffmpeg, self.duration)
