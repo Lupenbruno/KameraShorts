@@ -1,5 +1,6 @@
 """Generic HLS kamera kaydedici — herhangi bir şehir için kullanılır."""
 import hashlib
+import logging
 import os
 import shutil
 import subprocess
@@ -8,6 +9,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from src.ai_filter import is_interesting
+
+log = logging.getLogger("kamerashorts")
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 
@@ -56,12 +59,12 @@ class GenericRecorder:
             if result.returncode == 0 and out_path.exists():
                 if out_path.stat().st_size > 500_000:
                     if self._is_frozen(str(out_path)):
-                        print(f"  [{cam_id}] Donuk video, atlanıyor")
+                        log.warning(f"[{cam_id}] Donuk video, atlanıyor")
                         out_path.unlink(missing_ok=True)
                         return None
                     # Post-kayıt YOLO kontrolü — 5 kare ile tam analiz
                     if not is_interesting(str(out_path), self.ffmpeg, self.duration):
-                        print(f"  [{cam_id}] YOLO post-kayıt elendi, atlanıyor")
+                        log.warning(f"[{cam_id}] YOLO elendi, atlanıyor")
                         out_path.unlink(missing_ok=True)
                         return None
                     # Ortadaki kareyi thumbnail olarak kaydet
@@ -69,11 +72,11 @@ class GenericRecorder:
                     return str(out_path)
             return None
         except subprocess.TimeoutExpired:
-            print(f"  [{cam_id}] Timeout")
+            log.warning(f"[{cam_id}] Timeout")
             out_path.unlink(missing_ok=True)
             return None
         except Exception as e:
-            print(f"  [{cam_id}] Hata: {e}")
+            log.error(f"[{cam_id}] Kayıt hatası: {e}")
             return None
 
     def _save_thumbnail(self, video_path: str) -> None:

@@ -1,4 +1,5 @@
 """Captures HLS clips from Ankara bus cameras."""
+import logging
 import os
 import subprocess
 import shutil
@@ -9,6 +10,8 @@ import requests
 from datetime import datetime
 from pathlib import Path
 from src.ai_filter import quick_check, best_frame, is_interesting
+
+log = logging.getLogger("kamerashorts")
 
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
@@ -133,7 +136,7 @@ class ClipRecorder:
 
         # Relay açıkken 1 kare çek, YOLO ile ön kontrol
         if not quick_check(stream_url, self.ffmpeg):
-            print(f"  [{plate}] Ön YOLO: zemin/damper/karanlık, atlanıyor")
+            log.warning(f"[{plate}] Ön YOLO: zemin/damper/karanlık, atlanıyor")
             return None
 
         try:
@@ -171,12 +174,12 @@ class ClipRecorder:
                 if result.returncode == 0 and out_path.exists():
                     if out_path.stat().st_size > 100_000:
                         if self._is_frozen(str(out_path)):
-                            print(f"  Donuk video, atlanıyor: {plate}")
+                            log.warning(f"[{plate}] Donuk video, atlanıyor")
                             out_path.unlink(missing_ok=True)
                             return None
                         # Post-kayıt YOLO kontrolü — 5 kare ile tam analiz
                         if not is_interesting(str(out_path), self.ffmpeg, self.duration):
-                            print(f"  [{plate}] YOLO post-kayıt elendi, atlanıyor")
+                            log.warning(f"[{plate}] YOLO post-kayıt elendi, atlanıyor")
                             out_path.unlink(missing_ok=True)
                             return None
                         best_frame(str(out_path), self.ffmpeg, self.duration)
@@ -184,11 +187,11 @@ class ClipRecorder:
                 return None
 
         except subprocess.TimeoutExpired:
-            print(f"  Timeout: {plate}")
+            log.warning(f"[{plate}] Timeout")
             out_path.unlink(missing_ok=True)
             return None
         except Exception as e:
-            print(f"  Hata ({plate}): {e}")
+            log.error(f"[{plate}] Kayıt hatası: {e}")
             return None
 
     def _is_frozen(self, video_path: str) -> bool:
