@@ -201,10 +201,16 @@ class KameraShortsApp:
                     except Exception as e:
                         self.log.error(f"[{plate}] YouTube yukleme hatasi: {e}, kuyruğa eklendi")
                         self.uploader.add_to_queue(clip_path, metadata)
+                        used_plates.add(plate)
+                        _save_used_plates(used_plates)
+                        success += 1  # kuyruğa eklendi = slot tamamlandı sayılır
                 else:
                     self.log.warning(f"[{plate}] günlük kota doldu, kuyruğa eklendi")
                     self.notifier.quota_warning("ankara")
                     self.uploader.add_to_queue(clip_path, metadata)
+                    used_plates.add(plate)
+                    _save_used_plates(used_plates)
+                    success += 1  # kuyruğa eklendi = slot tamamlandı sayılır
             else:
                 self.log.info(f"[{plate}] clip hazır (upload atlandı): {clip_path}")
                 used_plates.add(plate)

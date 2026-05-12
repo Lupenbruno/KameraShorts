@@ -157,12 +157,14 @@ class CityApp:
                     except Exception as e:
                         self.log.error(f"[{cam_name}] YouTube yukleme hatasi: {e}, kuyruğa eklendi")
                         self.uploader.add_to_queue(clip_path, metadata)
+                        success += 1  # kuyruğa eklendi = slot tamamlandı sayılır
                 else:
                     self.log.warning(
                         f"[{cam_name}] günlük kota doldu, kuyruğa eklendi"
                     )
                     self.notifier.quota_warning(self.city_name)
                     self.uploader.add_to_queue(clip_path, metadata)
+                    success += 1  # kuyruğa eklendi = slot tamamlandı sayılır
             else:
                 self.log.info(
                     f"[{cam_name}] klip hazır (upload atlandı): {clip_path}"
