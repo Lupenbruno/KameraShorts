@@ -24,7 +24,10 @@ class YouTubeUploader:
         from google.auth.transport.requests import Request
         import json
 
-        scopes = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+        scopes = [
+            "https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube.readonly",
+        ]
         creds = None
 
         if Path(self.token_path).exists():
