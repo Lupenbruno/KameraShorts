@@ -238,7 +238,10 @@ class CityApp:
         self.notifier.system_started(self.city_name)
         self.log.info(f"{self.city_name} daemon modu başlatıldı. Ctrl+C ile dur.")
         while True:
-            schedule.run_pending()
+            try:
+                schedule.run_pending()
+            except Exception as e:
+                self.log.error(f"Daemon döngü hatası (devam ediliyor): {e}")
             time.sleep(30)
 
 

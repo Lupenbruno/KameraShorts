@@ -19,12 +19,12 @@ class AudioMixer:
         self.ffmpeg = _ff or shutil.which("ffmpeg") or "ffmpeg"
 
     def _generate_tts(self, text: str, out_mp3: str) -> bool:
-        """Microsoft Edge neural TTS ile Türkçe ses üret."""
+        """Microsoft Edge neural TTS ile Türkçe ses üret (30 sn timeout)."""
         try:
             import asyncio, edge_tts
             async def _run():
                 tts = edge_tts.Communicate(text, voice="tr-TR-EmelNeural", rate="-10%")
-                await tts.save(out_mp3)
+                await asyncio.wait_for(tts.save(out_mp3), timeout=30)
             asyncio.run(_run())
             return Path(out_mp3).exists() and Path(out_mp3).stat().st_size > 1000
         except Exception:

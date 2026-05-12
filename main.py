@@ -222,7 +222,10 @@ class KameraShortsApp:
         self.notifier.system_started("Ankara")
         self.log.info("Daemon modu başlatıldı. Ctrl+C ile dur.")
         while True:
-            schedule.run_pending()
+            try:
+                schedule.run_pending()
+            except Exception as e:
+                self.log.error(f"Daemon döngü hatası (devam ediliyor): {e}")
             time.sleep(30)
 
 
