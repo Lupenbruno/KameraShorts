@@ -25,8 +25,7 @@ class YouTubeUploader:
         import json
 
         scopes = [
-            "https://www.googleapis.com/auth/youtube.upload",
-            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/youtube",
         ]
         creds = None
 
