@@ -189,12 +189,27 @@ class YouTubeUploader:
     def upload_queue(self):
         if not Path(self.queue_path).exists():
             return
+        import time as _time
         queue = json.loads(Path(self.queue_path).read_text())
         remaining = []
+        uploaded = 0
         for item in queue:
-            if self.check_quota():
-                self.upload(item["video_path"], item["metadata"])
-            else:
+            vpath = item.get("video_path", "")
+            if not Path(vpath).exists():
+                log.warning(f"Kuyruk: dosya bulunamadı, atlanıyor: {vpath}")
+                continue
+            if not self.check_quota():
+                remaining.append(item)
+                continue
+            try:
+                self.upload(vpath, item["metadata"])
+                uploaded += 1
+                # Videolar arası 3 dakika bekle — YouTube rate limit önlemi
+                if uploaded < len([x for x in queue if Path(x.get("video_path","")).exists()]):
+                    log.info(f"Sonraki upload için 3 dakika bekleniyor...")
+                    _time.sleep(180)
+            except Exception as e:
+                log.error(f"Kuyruk upload hatası: {e}")
                 remaining.append(item)
         Path(self.queue_path).write_text(json.dumps(remaining, indent=2, ensure_ascii=False))
 
