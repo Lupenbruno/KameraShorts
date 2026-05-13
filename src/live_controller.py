@@ -1,4 +1,4 @@
-﻿"""Canli yayin kontrolcusu — mod yonetimi, ffmpeg, superchat."""
+"""Canli yayin kontrolcusu — mod yonetimi, ffmpeg, superchat."""
 import json
 import logging
 import os
@@ -302,7 +302,6 @@ class LiveController:
 
     def _stream_clip(self, clip_path: str, city: str):
         """RAM'deki hazir klibi RTMP'ye gonder — encode yok, sadece copy."""
-        self._kill_ffmpeg()
         out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
         cmd = [
             self.ffmpeg, "-re",
@@ -311,8 +310,8 @@ class LiveController:
             "-flush_packets", "1",
             *out_args,
         ]
-        self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
-        log.info(f"[{city}] Klip stream baslatildi (c:copy) PID {self._proc.pid}")
+        log.info(f"[{city}] Klip stream baslatiliyor (c:copy)")
+        self._switch_to(cmd)
 
         deadline   = time.time() + SINGLE_DURATION + 10
         last_poll  = time.time()
@@ -334,8 +333,6 @@ class LiveController:
 
     # ------------------------------------------------------------------
     def _start_ffmpeg_single(self, stream_url: str, city: str, cam_name: str, weather: dict | None):
-        self._kill_ffmpeg()
-
         now_str   = datetime.now().strftime("%H\\:%M")
         city_disp = CITY_NAMES[city]
         w_str     = f"  {weather['condition']} {weather['temp']}C" if weather else ""
@@ -372,12 +369,10 @@ class LiveController:
             "-flush_packets", "1",
             *out_args,
         ]
-        self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
-        log.info(f"FFmpeg basladi (tek): PID {self._proc.pid}")
+        log.info(f"FFmpeg baslatiyor (tek) — {city} {cam_name}")
+        self._switch_to(cmd)
 
     def _start_ffmpeg_split(self, cams: dict):
-        self._kill_ffmpeg()
-
         inputs = []
         for city in CITY_ORDER:
             cam = cams[city]
@@ -407,8 +402,26 @@ class LiveController:
             "-flush_packets", "1",
             *out_args,
         ]
-        self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
-        log.info(f"FFmpeg basladi (split): PID {self._proc.pid}")
+        log.info("FFmpeg baslatiyor (split)")
+        self._switch_to(cmd)
+
+    def _switch_to(self, cmd: list):
+        """Yeni FFmpeg'i once baslat, RTMP baglantisi kurulunca eskiyi kes.
+        Bu sayede kameralar arasi geciste yayın kapanmaz.
+        """
+        new_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
+        # Yeni process RTMP'ye baglansin (2s yeterli)
+        time.sleep(2)
+        # Eski process'i kes
+        old_proc = self._proc
+        self._proc = new_proc
+        if old_proc and old_proc.poll() is None:
+            old_proc.terminate()
+            try:
+                old_proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                old_proc.kill()
+        log.info(f"Gecis tamamlandi: yeni PID {new_proc.pid}")
 
     def _kill_ffmpeg(self):
         if self._proc and self._proc.poll() is None:
