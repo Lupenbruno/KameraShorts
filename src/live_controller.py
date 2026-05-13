@@ -244,10 +244,11 @@ class LiveController:
             "-i", stream_url,
             "-vf", vf,
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-b:v", "1500k", "-maxrate", "1500k", "-bufsize", "3000k",
-            "-g", "60",
-            "-c:a", "aac", "-b:a", "96k",
+            "-b:v", "800k", "-maxrate", "900k", "-bufsize", "800k",
+            "-g", "48",
+            "-c:a", "aac", "-b:a", "64k",
             "-avoid_negative_ts", "make_zero",
+            "-flush_packets", "1",
             *out_args,
         ]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
@@ -279,9 +280,10 @@ class LiveController:
             "-filter_complex", filter_complex,
             "-map", "[v]",
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-b:v", "2000k", "-maxrate", "2000k", "-bufsize", "4000k",
-            "-g", "60",
+            "-b:v", "1200k", "-maxrate", "1400k", "-bufsize", "1200k",
+            "-g", "48",
             "-an",
+            "-flush_packets", "1",
             *out_args,
         ]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
