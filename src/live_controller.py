@@ -25,6 +25,14 @@ CITY_KEYWORDS = {
     "konya":    ["konya"],
 }
 
+# Kamera düşünce anında geçilecek yedek şehir
+CITY_FALLBACK = {
+    "ankara":   "istanbul",
+    "istanbul": "konya",
+    "corum":    "istanbul",
+    "konya":    "istanbul",
+}
+
 SINGLE_DURATION = 180   # 3 dk tek kamera
 SPLIT_DURATION  = 600   # 10 dk split ekran
 POLL_INTERVAL   = 30    # superchat kontrol
@@ -72,9 +80,11 @@ class LiveController:
     def _run_cycle(self):
         """1 tam dongu: 4 sehir x 3dk + 10dk split."""
         for city in CITY_ORDER:
-            cam = self._next_cam(city)
+            cam = self._find_live_cam(city)
             if cam:
                 self._stream_single(cam, city, SINGLE_DURATION)
+            else:
+                log.warning(f"[{city}] Canli kamera bulunamadi, atlaniyor")
 
         # Split ekran
         self._stream_split(SPLIT_DURATION)
@@ -106,19 +116,19 @@ class LiveController:
             # FFmpeg oldu mu?
             if self._proc and self._proc.poll() is not None:
                 alive_secs = time.time() - start_time
-                if alive_secs < 10:
-                    dead_streak += 1
+                # Aninda yedek sehre gec — ayni sehirde arama yapma
+                fallback = CITY_FALLBACK.get(city)
+                log.warning(f"[TEK] {city} kamera dustu ({alive_secs:.0f}s) → {fallback} yedegine geciliyor")
+                fallback_cam = self._find_live_cam(fallback) if fallback else None
+                if fallback_cam:
+                    self._start_ffmpeg_single(
+                        fallback_cam["stream_url"], fallback,
+                        fallback_cam["name"], self._get_weather(fallback)
+                    )
+                    start_time = time.time()
                 else:
-                    dead_streak = 0
-                if dead_streak >= 5:
-                    log.warning(f"[TEK] {city}: 5 ardisik offline kamera, sehir atlaniyor")
+                    log.warning(f"[TEK] {fallback} yedegi de yok, sehir atlaniyor")
                     return
-                log.warning(f"[TEK] FFmpeg kapandi ({alive_secs:.0f}s), yeniden baslatiliyor... (dead={dead_streak})")
-                start_time = time.time()
-                next_cam = self._next_cam(city)
-                if next_cam:
-                    weather = self._get_weather(city)
-                    self._start_ffmpeg_single(next_cam["stream_url"], city, next_cam["name"], weather)
 
             time.sleep(5)
 
@@ -238,6 +248,33 @@ class LiveController:
         self._proc = None
 
     # ------------------------------------------------------------------
+    def _probe(self, url: str) -> bool:
+        """2 saniyelik ffprobe — kamera canli mi degil mi."""
+        try:
+            r = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-tls_verify", "0",
+                 "-i", url, "-show_entries", "stream=codec_type",
+                 "-of", "csv=p=0"],
+                capture_output=True, timeout=4
+            )
+            return r.returncode == 0 and b"video" in r.stdout
+        except Exception:
+            return False
+
+    def _find_live_cam(self, city: str) -> dict | None:
+        """Sehirdeki kameralar arasinda canli olan ilkini bul (max 10 dene)."""
+        cams = self.cameras.get(city, [])
+        if not cams:
+            return None
+        total = len(cams)
+        for _ in range(min(10, total)):
+            cam = self._next_cam(city)
+            if self._probe(cam["stream_url"]):
+                log.info(f"[{city}] Canli kamera: {cam['name']}")
+                return cam
+            log.debug(f"[{city}] Offline: {cam['name']}")
+        return None
+
     def _next_cam(self, city: str) -> dict | None:
         cams = self.cameras.get(city, [])
         if not cams:
