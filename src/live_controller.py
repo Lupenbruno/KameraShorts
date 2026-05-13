@@ -38,6 +38,15 @@ class LiveController:
         self.yt_live  = yt_live
         self.ffmpeg   = shutil.which("ffmpeg") or "ffmpeg"
         self.owm_key  = config.get("openweathermap_api_key", "")
+        kick_url      = config.get("kick", {}).get("rtmp_url", "")
+        # tee muxer: YouTube + Kick aynı anda
+        if kick_url:
+            self.output = f"[f=flv]{rtmp_url}|[f=flv]{kick_url}"
+            self.tee    = True
+            log.info("Dual stream: YouTube + Kick")
+        else:
+            self.output = rtmp_url
+            self.tee    = False
 
         # Kamera listeleri
         cam_file = Path("data/live_cameras.json")
@@ -154,6 +163,7 @@ class LiveController:
             f"box=1:boxcolor=black@0.55:boxborderw=12"
         )
 
+        out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
         cmd = [
             self.ffmpeg, "-re",
             "-tls_verify", "0",
@@ -162,7 +172,7 @@ class LiveController:
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
             "-crf", "28", "-g", "60", "-b:v", "2500k",
             "-c:a", "aac", "-b:a", "128k",
-            "-f", "flv", self.rtmp_url,
+            *out_args,
         ]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
         log.info(f"FFmpeg basladi (tek): PID {self._proc.pid}")
@@ -185,6 +195,7 @@ class LiveController:
             "[a][b][c][d]xstack=inputs=4:layout=0_0|960_0|0_540|960_540[v]"
         )
 
+        out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
         cmd = [
             self.ffmpeg,
             *inputs,
@@ -193,7 +204,7 @@ class LiveController:
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
             "-crf", "28", "-g", "60", "-b:v", "4000k",
             "-an",
-            "-f", "flv", self.rtmp_url,
+            *out_args,
         ]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
         log.info(f"FFmpeg basladi (split): PID {self._proc.pid}")
