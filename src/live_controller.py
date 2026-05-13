@@ -36,6 +36,8 @@ CITY_FALLBACK = {
 SINGLE_DURATION = 180   # 3 dk tek kamera
 SPLIT_DURATION  = 600   # 10 dk split ekran
 POLL_INTERVAL   = 30    # superchat kontrol
+CLIP_DURATION   = 195   # kaydedilen klip suresi (SINGLE + 15s tampon)
+RAM_DIR         = "/dev/shm"  # Linux RAM diski
 
 
 class LiveController:
@@ -68,12 +70,17 @@ class LiveController:
         self._superchat_until: float = 0
 
         # Canli kamera onbellegi: {city: [cam, cam, ...]}
-        # Arka plan thread'i surekli gunceller, anlık geçiş icin hazir tutar
         import threading
         self._live_cache: dict[str, list] = {c: [] for c in CITY_ORDER}
         self._cache_lock = threading.Lock()
         self._cache_thread = threading.Thread(target=self._refresh_cache_loop, daemon=True)
         self._cache_thread.start()
+
+        # RAM klip tamponu: diger sehir yayindayken klip hazirla
+        self._clip_ready: dict[str, str | None] = {c: None for c in CITY_ORDER}
+        self._clip_lock = threading.Lock()
+        self._clip_thread = threading.Thread(target=self._clip_record_loop, daemon=True)
+        self._clip_thread.start()
 
     def _refresh_cache_loop(self):
         """Arka planda surekli kamera probe eder, onbellegi gunceller."""
@@ -93,6 +100,73 @@ class LiveController:
                 log.debug(f"[onbellek] {city}: {len(live)} canli kamera")
             # 3 dakikada bir yenile
             time.sleep(180)
+
+    def _clip_record_loop(self):
+        """Arka planda her sehir icin RAM'e klip kaydeder (195s).
+        Klip hazir olunca _clip_ready gunceller.
+        Surekli dongu: eski klip oynatilinca yenisini kaydeder.
+        """
+        import itertools
+        for city in itertools.cycle(CITY_ORDER):
+            # Zaten gecerli klip varsa atla
+            with self._clip_lock:
+                existing = self._clip_ready.get(city)
+            if existing and Path(existing).exists():
+                time.sleep(5)
+                continue
+
+            cam = self._find_live_cam(city)
+            if not cam:
+                log.debug(f"[klip] {city}: canli kamera yok, atlaniyor")
+                time.sleep(10)
+                continue
+
+            out_path = f"{RAM_DIR}/live_{city}.mp4"
+            log.info(f"[klip] {city} — {cam['name']} kaydediliyor → {out_path}")
+
+            weather  = self._get_weather(city)
+            now_str  = datetime.now().strftime("%H\\:%M")
+            city_disp = CITY_NAMES[city]
+            w_str    = f"  {weather['condition']} {weather['temp']}C" if weather else ""
+            overlay  = f"CANLI  |  {city_disp} - {cam['name']}  |  {now_str}{w_str}"
+            overlay  = overlay.replace("'", "").replace(":", "\\:")
+            font_arg = f"fontfile={FONT}:" if Path(FONT).exists() else ""
+            vf = (
+                f"scale=1280:720:force_original_aspect_ratio=increase,"
+                f"crop=1280:720,"
+                f"drawtext={font_arg}"
+                f"text='{overlay}':"
+                f"fontcolor=white:fontsize=28:x=16:y=16:"
+                f"box=1:boxcolor=black@0.55:boxborderw=10"
+            )
+
+            cmd = [
+                self.ffmpeg,
+                "-tls_verify", "0",
+                "-reconnect", "1", "-reconnect_streamed", "1",
+                "-reconnect_delay_max", "3",
+                "-i", cam["stream_url"],
+                "-t", str(CLIP_DURATION),
+                "-vf", vf,
+                "-c:v", "libx264", "-preset", "ultrafast",
+                "-b:v", "800k", "-maxrate", "900k", "-bufsize", "800k",
+                "-g", "48",
+                "-c:a", "aac", "-b:a", "64k",
+                "-movflags", "+faststart",
+                "-y", out_path,
+            ]
+            try:
+                r = subprocess.run(cmd, capture_output=True, timeout=CLIP_DURATION + 30, **_NW)
+                if r.returncode == 0 and Path(out_path).exists() and Path(out_path).stat().st_size > 100_000:
+                    with self._clip_lock:
+                        self._clip_ready[city] = out_path
+                    log.info(f"[klip] {city} hazir: {Path(out_path).stat().st_size // 1024}KB")
+                else:
+                    log.warning(f"[klip] {city} kayit basarisiz (rc={r.returncode})")
+            except subprocess.TimeoutExpired:
+                log.warning(f"[klip] {city} timeout")
+            except Exception as e:
+                log.warning(f"[klip] {city} hata: {e}")
 
     def _next_cached_cam(self, city: str) -> dict | None:
         """Onbellekten aninda kamera ver — probe bekleme yok."""
@@ -125,12 +199,27 @@ class LiveController:
     def _run_cycle(self):
         """1 tam dongu: 4 sehir x 3dk + 10dk split."""
         for city in CITY_ORDER:
-            # Once onbellekten dene, yoksa canli ara
-            cam = self._next_cached_cam(city) or self._find_live_cam(city)
-            if cam:
-                self._stream_single(cam, city, SINGLE_DURATION)
+            # 1. RAM'de hazir klip var mi? → encode yok, direkt oynat
+            with self._clip_lock:
+                clip = self._clip_ready.get(city)
+
+            if clip and Path(clip).exists():
+                log.info(f"[{city}] RAM klip oynatiliyor: {clip}")
+                self._stream_clip(clip, city)
+                # Kullanildi, silip yenisini hazirla
+                with self._clip_lock:
+                    self._clip_ready[city] = None
+                try:
+                    Path(clip).unlink(missing_ok=True)
+                except Exception:
+                    pass
             else:
-                log.warning(f"[{city}] Canli kamera bulunamadi, atlaniyor")
+                # 2. Klip yoksa canli stream (fallback)
+                cam = self._next_cached_cam(city) or self._find_live_cam(city)
+                if cam:
+                    self._stream_single(cam, city, SINGLE_DURATION)
+                else:
+                    log.warning(f"[{city}] Ne klip ne canli kamera, atlaniyor")
 
         # Split ekran
         self._stream_split(SPLIT_DURATION)
@@ -210,6 +299,38 @@ class LiveController:
                 self._start_ffmpeg_split(cams)
 
             time.sleep(5)
+
+    def _stream_clip(self, clip_path: str, city: str):
+        """RAM'deki hazir klibi RTMP'ye gonder — encode yok, sadece copy."""
+        self._kill_ffmpeg()
+        out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
+        cmd = [
+            self.ffmpeg, "-re",
+            "-i", clip_path,
+            "-c", "copy",
+            "-flush_packets", "1",
+            *out_args,
+        ]
+        self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
+        log.info(f"[{city}] Klip stream baslatildi (c:copy) PID {self._proc.pid}")
+
+        deadline   = time.time() + SINGLE_DURATION + 10
+        last_poll  = time.time()
+        while time.time() < deadline:
+            if time.time() - last_poll >= POLL_INTERVAL:
+                override = self._poll_superchat()
+                last_poll = time.time()
+                if override and override != city:
+                    log.info(f"SuperChat: {override} sehrine geciliyor")
+                    self._kill_ffmpeg()
+                    override_cam = self._next_cached_cam(override) or self._find_live_cam(override)
+                    if override_cam:
+                        self._stream_single(override_cam, override, SINGLE_DURATION)
+                    return
+            if self._proc and self._proc.poll() is not None:
+                log.info(f"[{city}] Klip bitti")
+                return
+            time.sleep(3)
 
     # ------------------------------------------------------------------
     def _start_ffmpeg_single(self, stream_url: str, city: str, cam_name: str, weather: dict | None):
