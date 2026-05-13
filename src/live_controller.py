@@ -82,6 +82,10 @@ class LiveController:
         self._clip_thread = threading.Thread(target=self._clip_record_loop, daemon=True)
         self._clip_thread.start()
 
+        # Ankara keep-alive: aktif kameralari canli tutar
+        from src.ankara_keeper import AnkaraKeeper
+        self._ankara_keeper = AnkaraKeeper(self.cameras.get("ankara", []))
+
     def _refresh_cache_loop(self):
         """Arka planda surekli kamera probe eder, onbellegi gunceller."""
         import itertools
@@ -214,8 +218,13 @@ class LiveController:
                 except Exception:
                     pass
             else:
-                # 2. Klip yoksa canli stream (fallback)
-                cam = self._next_cached_cam(city) or self._find_live_cam(city)
+                # 2. Klip yoksa canli stream
+                # Ankara icin once keeper'dan sicak kamera al
+                if city == "ankara":
+                    warm = self._ankara_keeper.get_warm()
+                    cam = warm[0] if warm else (self._next_cached_cam(city) or self._find_live_cam(city))
+                else:
+                    cam = self._next_cached_cam(city) or self._find_live_cam(city)
                 if cam:
                     self._stream_single(cam, city, SINGLE_DURATION)
                 else:
@@ -252,6 +261,13 @@ class LiveController:
             if self._proc and self._proc.poll() is not None:
                 alive_secs = time.time() - start_time
                 fallback = CITY_FALLBACK.get(city)
+                # Neden öldüğünü logla
+                try:
+                    err = self._proc.stderr.read(300) if self._proc.stderr else b""
+                    if err:
+                        log.warning(f"[TEK] {city} ffmpeg hata: {err.decode('utf-8', errors='replace').strip()[-200:]}")
+                except Exception:
+                    pass
                 log.warning(f"[TEK] {city} dustu ({alive_secs:.0f}s) → {fallback} onbelleginden anlık gecis")
                 # Once onbellekten aninda al — probe bekleme yok
                 fallback_cam = self._next_cached_cam(fallback) if fallback else None
@@ -407,20 +423,20 @@ class LiveController:
 
     def _switch_to(self, cmd: list):
         """Yeni FFmpeg'i once baslat, RTMP baglantisi kurulunca eskiyi kes.
-        Bu sayede kameralar arasi geciste yayın kapanmaz.
+        Eski proc yaşıyorsa 2s overlap (kesintisiz). Ölmüşse hemen geç.
         """
-        new_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
-        # Yeni process RTMP'ye baglansin (2s yeterli)
-        time.sleep(2)
-        # Eski process'i kes
+        new_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, **_NW)
         old_proc = self._proc
         self._proc = new_proc
         if old_proc and old_proc.poll() is None:
+            # Eski proc yaşıyor — yeni RTMP bağlansın, sonra eski kesilsin
+            time.sleep(2)
             old_proc.terminate()
             try:
                 old_proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 old_proc.kill()
+        # Eski proc zaten ölmüşse sleep yok — hemen devam et
         log.info(f"Gecis tamamlandi: yeni PID {new_proc.pid}")
 
     def _kill_ffmpeg(self):
@@ -434,13 +450,14 @@ class LiveController:
 
     # ------------------------------------------------------------------
     def _probe(self, url: str) -> bool:
-        """2 saniyelik ffprobe — kamera canli mi degil mi."""
+        """Kamera canli mi — hizli ffprobe kontrolu."""
         try:
             r = subprocess.run(
                 ["ffprobe", "-v", "quiet", "-tls_verify", "0",
-                 "-i", url, "-show_entries", "stream=codec_type",
+                 "-i", url,
+                 "-show_entries", "stream=codec_type",
                  "-of", "csv=p=0"],
-                capture_output=True, timeout=4
+                capture_output=True, timeout=5
             )
             return r.returncode == 0 and b"video" in r.stdout
         except Exception:
