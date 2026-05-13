@@ -221,8 +221,8 @@ class LiveController:
                 else:
                     log.warning(f"[{city}] Ne klip ne canli kamera, atlaniyor")
 
-        # Split ekran
-        self._stream_split(SPLIT_DURATION)
+        # Split ekran devre disi — cok sayida kamera eş zamanlı gerektirir
+        # self._stream_split(SPLIT_DURATION)
 
     # ------------------------------------------------------------------
     def _stream_single(self, cam: dict, city: str, duration: int):
