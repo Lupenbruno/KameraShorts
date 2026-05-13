@@ -142,7 +142,7 @@ class KameraShortsApp:
         self.log.info(f"=== {now.strftime('%d/%m/%Y %H:%M')} — pipeline başlıyor ===")
 
         used_plates = _load_used_plates()
-        candidates = self.registry.get_active_cameras(limit=count * 20)
+        candidates = self.registry.get_active_cameras(limit=count * 6)
         # Bugün kullanılmış plakaları filtrele
         candidates = [v for v in candidates
                       if v.get("license_plate", "?") not in used_plates]
