@@ -6,3 +6,7 @@ data/queue/
 credentials/
 logs/
 *.mp4
+config.yaml
+*.pt
+data/
+test_tts.mp3
