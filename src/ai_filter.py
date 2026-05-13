@@ -25,6 +25,26 @@ def _brightness(frame_path: str) -> float:
         return 128.0
 
 
+
+def _cv_precheck(frame_path):
+    try:
+        import cv2
+        img = cv2.imread(frame_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return True, 128.0
+        brightness = float(img.mean())
+        if brightness < 10:
+            return False, brightness
+        variance = float(cv2.Laplacian(img, cv2.CV_64F).var())
+        if variance < 15:
+            return False, brightness
+        return True, brightness
+    except ImportError:
+        return True, 128.0
+    except Exception:
+        return True, 128.0
+
+
 def _dynamic_min_score(brightness: float) -> int:
     """Parlaklığa göre dinamik MIN_SCORE.
 
@@ -281,6 +301,11 @@ def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
         if not Path(frame).exists() or Path(frame).stat().st_size < 500:
             return True  # kare alınamadı → geçir
 
+        cv_ok, _ = _cv_precheck(frame)
+        if not cv_ok:
+            log.info("CV eledi karanlik/bos ELENDI")
+            return False
+
         try:
             results = _model(frame, conf=CONF_THRESH, verbose=False)
             score = 0
@@ -368,3 +393,74 @@ def best_frame(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> s
         return None
     log.info(f"Thumbnail: t={best_t}s, skor={best_score}, {Path(thumb_path).name}")
     return thumb_path if Path(thumb_path).exists() else None
+
+
+def analyze_clip(video_path, ffmpeg="ffmpeg", duration=30):
+    """Tek geciste scoring + thumbnail. score_clip+best_frame yerine."""
+    import subprocess as _sp, sys as _sys, tempfile as _tmp
+    _NW = {"creationflags": _sp.CREATE_NO_WINDOW} if _sys.platform == "win32" else {}
+    step = max(2, duration // 6)
+    timestamps = [step, step*2, step*3, step*4, step*5]
+    total = 0
+    first_brightness = 128.0
+    best_score = -1
+    best_t = timestamps[len(timestamps)//2]
+    model_ok = _load_model()
+
+    with _tmp.TemporaryDirectory() as tmp:
+        bright_frame = os.path.join(tmp, "bright.jpg")
+        try:
+            _sp.run([ffmpeg,"-y","-ss",str(step),"-i",video_path,
+                     "-frames:v","1","-q:v","4","-vf",_VF_BRIGHT,bright_frame],
+                    capture_output=True,timeout=10,**_NW)
+            if Path(bright_frame).exists():
+                first_brightness = _brightness(bright_frame)
+        except Exception:
+            pass
+
+        for i, t in enumerate(timestamps):
+            frame = os.path.join(tmp, "f{}.jpg".format(i))
+            try:
+                _sp.run([ffmpeg,"-y","-ss",str(t),"-i",video_path,
+                         "-frames:v","1","-q:v","3","-vf",_VF_YOLO,frame],
+                        capture_output=True,timeout=10,**_NW)
+            except Exception:
+                continue
+            if not Path(frame).exists():
+                continue
+            cv_ok, _ = _cv_precheck(frame)
+            if not cv_ok:
+                continue
+            frame_score = 0
+            if model_ok:
+                try:
+                    results = _model(frame,conf=CONF_THRESH,verbose=False)
+                    for r in results:
+                        for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                            frame_score += OBJECT_SCORES.get(int(cls_id),0)
+                    total += frame_score
+                except Exception:
+                    pass
+            if frame_score > best_score:
+                best_score = frame_score
+                best_t = t
+
+    dyn_min = _dynamic_min_score(first_brightness)
+    if not model_ok:
+        total = 99
+    log.info("analyze_clip: skor={} parlaklik={:.0f} esik={}".format(total,first_brightness,dyn_min))
+
+    thumb_path = str(Path(video_path).with_suffix(".jpg"))
+    vf_t = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2"
+    import subprocess as _sp2, sys as _sys2
+    _NW2 = {"creationflags": _sp2.CREATE_NO_WINDOW} if _sys2.platform == "win32" else {}
+    try:
+        _sp2.run([ffmpeg,"-y","-ss",str(best_t),"-i",video_path,
+                  "-frames:v","1","-q:v","2","-vf",vf_t,thumb_path],
+                 capture_output=True,timeout=10,**_NW2)
+        if Path(thumb_path).exists():
+            log.info("Thumbnail t={}s skor={}".format(best_t,best_score))
+            return total, dyn_min, thumb_path
+    except Exception:
+        pass
+    return total, dyn_min, None

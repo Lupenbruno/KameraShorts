@@ -151,10 +151,12 @@ class IstanbulApp:
                     except Exception as e:
                         self.log.error(f"[{cam_name}] YouTube yukleme hatasi: {e}, kuyruğa eklendi")
                         self.uploader.add_to_queue(clip_path, metadata)
+                        success += 1  # kuyruga eklendi
                 else:
                     self.log.warning(f"[{cam_name}] günlük kota doldu, kuyruğa eklendi")
                     self.notifier.quota_warning("istanbul")
                     self.uploader.add_to_queue(clip_path, metadata)
+                    success += 1  # kuyruga eklendi
             else:
                 self.log.info(f"[{cam_name}] klip hazır (upload atlandı): {clip_path}")
                 import subprocess as sp
@@ -173,7 +175,10 @@ class IstanbulApp:
         self.notifier.system_started("İstanbul")
         self.log.info("İstanbul daemon modu başlatıldı. Ctrl+C ile dur.")
         while True:
-            schedule.run_pending()
+            try:
+                schedule.run_pending()
+            except Exception as e:
+                self.log.error("Daemon hata (devam): " + str(e))
             time.sleep(30)
 
 

@@ -84,6 +84,11 @@ class YouTubeUploader:
             try:
                 _, response = request.next_chunk()
             except Exception as e:
+                err_str = str(e)
+                # Kalici hatalar: retry etme
+                _FATAL = ("uploadLimitExceeded", "quotaExceeded", "forbidden", "invalidToken", "authError")
+                if any(k in err_str for k in _FATAL):
+                    raise RuntimeError("YouTube kalici hata (retry yok): " + err_str)
                 retries += 1
                 if retries > 5:
                     raise RuntimeError(f"YouTube upload 5 denemede basarisiz: {e}")

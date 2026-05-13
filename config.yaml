@@ -1,7 +1,7 @@
 schedule:
   # Günde 6 vakit — 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
   times: ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
-  clip_duration: 30  # saniye
+  clip_duration: 40  # saniye
   videos_per_slot: 4
   daily_quota_limit: 24
 
@@ -57,7 +57,7 @@ ffmpeg_path: ""  # Boş bırakıldı — sistem ffmpeg kullanılır (which ffmpe
 
 # OpenWeatherMap API — ücretsiz (1000 req/gün)
 # https://openweathermap.org/api/one-call-3
-openweathermap_api_key: ""   # buraya OWM API key gir
+openweathermap_api_key: "0ff6f3851844251b5efa05f8f0be16de"
 
 paths:
   clips_dir: "data/clips"

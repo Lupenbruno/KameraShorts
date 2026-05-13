@@ -9,7 +9,7 @@ import time
 import requests
 from datetime import datetime
 from pathlib import Path
-from src.ai_filter import quick_check, best_frame, is_interesting
+from src.ai_filter import quick_check, analyze_clip
 
 log = logging.getLogger("kamerashorts")
 
@@ -178,11 +178,11 @@ class ClipRecorder:
                             out_path.unlink(missing_ok=True)
                             return None
                         # Post-kayıt YOLO kontrolü — 5 kare ile tam analiz
-                        if not is_interesting(str(out_path), self.ffmpeg, self.duration):
+                        score, dyn_min, _ = analyze_clip(str(out_path), self.ffmpeg, self.duration)
+                        if score < dyn_min:
                             log.warning(f"[{plate}] YOLO post-kayıt elendi, atlanıyor")
                             out_path.unlink(missing_ok=True)
                             return None
-                        best_frame(str(out_path), self.ffmpeg, self.duration)
                         return str(out_path)
                 return None
 
@@ -198,45 +198,6 @@ class ClipRecorder:
         """İki kontrol: düşük bitrate VEYA aynı kareler → donuk."""
         return self._check_bitrate(video_path) or self._check_frames(video_path)
 
-    def _is_boring(self, video_path: str) -> bool:
-        """Sadece yol/tavan gösteren tekdüze görüntüleri filtrele."""
-        import tempfile, os
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-                tmp = f.name
-            cmd = [self.ffmpeg, "-y", "-ss", str(self.duration // 2),
-                   "-i", video_path, "-frames:v", "1", tmp]
-            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
-            if not Path(tmp).exists():
-                return False
-            png_kb = Path(tmp).stat().st_size / 1024
-            os.unlink(tmp)
-            return png_kb < 300
-        except Exception:
-            return False
-
-    def _is_blurry(self, video_path: str) -> bool:
-        """Kenar tespiti uygula — kenar az ise lens bulanık/yağmurlu."""
-        import tempfile, os
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-                tmp = f.name
-            cmd = [
-                self.ffmpeg, "-y", "-ss", str(self.duration // 2),
-                "-i", video_path,
-                "-frames:v", "1",
-                "-vf", "edgedetect=low=0.05:high=0.2",
-                tmp
-            ]
-            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
-            if not Path(tmp).exists():
-                return False
-            edge_kb = Path(tmp).stat().st_size / 1024
-            os.unlink(tmp)
-            return edge_kb < 25
-        except Exception:
-            return False
-
     def _check_bitrate(self, video_path: str) -> bool:
         """Saniye başına 60KB altı = donuk."""
         try:
@@ -246,25 +207,19 @@ class ClipRecorder:
             return False
 
     def _check_frames(self, video_path: str) -> bool:
-        """5 farklı saniyeden kare çek, neredeyse hepsi aynıysa donuk."""
-        import hashlib, tempfile, os
+        """5 farkli saniyeden kare cek, neredeyse hepsi ayniysa donuk."""
+        import hashlib
         try:
             hashes = []
             step = max(1, self.duration // 6)
-            for t in range(step, self.duration, step):
-                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
-                    tmp = f.name
-                try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                for i, t in enumerate(range(step, self.duration, step)):
+                    frame = os.path.join(tmp_dir, "fr{}.jpg".format(i))
                     cmd = [self.ffmpeg, "-y", "-ss", str(t), "-i", video_path,
-                           "-frames:v", "1", "-q:v", "5", tmp]
+                           "-frames:v", "1", "-q:v", "5", frame]
                     subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
-                    if Path(tmp).exists():
-                        hashes.append(hashlib.md5(Path(tmp).read_bytes()).hexdigest())
-                finally:
-                    try:
-                        os.unlink(tmp)
-                    except Exception:
-                        pass
+                    if Path(frame).exists():
+                        hashes.append(hashlib.md5(Path(frame).read_bytes()).hexdigest())
             if len(hashes) < 3:
                 return False
             most_common = max(set(hashes), key=hashes.count)

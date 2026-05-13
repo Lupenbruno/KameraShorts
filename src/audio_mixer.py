@@ -92,7 +92,7 @@ class AudioMixer:
 
             # Video filtresi — overlay varsa yeniden encode, yoksa copy
             if drawtext:
-                vcodec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
+                vcodec_args = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "26"]
                 vf_arg      = ["-vf", drawtext]
             else:
                 vcodec_args = ["-c:v", "copy"]
@@ -129,7 +129,7 @@ class AudioMixer:
                         + [str(out_path)]
                     )
 
-            result = subprocess.run(cmd, capture_output=True, timeout=300, **_NW)
+            result = subprocess.run(cmd, capture_output=True, timeout=600, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if video.exists():
                     video.unlink()

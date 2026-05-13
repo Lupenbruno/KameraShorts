@@ -8,7 +8,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from src.ai_filter import is_interesting
+from src.ai_filter import analyze_clip
 
 log = logging.getLogger("kamerashorts")
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
@@ -63,12 +63,11 @@ class GenericRecorder:
                         out_path.unlink(missing_ok=True)
                         return None
                     # Post-kayıt YOLO kontrolü — 5 kare ile tam analiz
-                    if not is_interesting(str(out_path), self.ffmpeg, self.duration):
+                    score, dyn_min, _ = analyze_clip(str(out_path), self.ffmpeg, self.duration)
+                    if score < dyn_min:
                         log.warning(f"[{cam_id}] YOLO elendi, atlanıyor")
                         out_path.unlink(missing_ok=True)
                         return None
-                    # Ortadaki kareyi thumbnail olarak kaydet
-                    self._save_thumbnail(str(out_path))
                     return str(out_path)
             return None
         except subprocess.TimeoutExpired:
@@ -78,18 +77,6 @@ class GenericRecorder:
         except Exception as e:
             log.error(f"[{cam_id}] Kayıt hatası: {e}")
             return None
-
-    def _save_thumbnail(self, video_path: str) -> None:
-        """Videonun ortasından 1280x720 thumbnail çek, .jpg olarak kaydet."""
-        thumb = str(Path(video_path).with_suffix(".jpg"))
-        vf = ("scale=1280:720:force_original_aspect_ratio=decrease,"
-              "pad=1280:720:(ow-iw)/2:(oh-ih)/2")
-        cmd = [self.ffmpeg, "-y", "-ss", str(self.duration // 2),
-               "-i", video_path, "-frames:v", "1", "-q:v", "2", "-vf", vf, thumb]
-        try:
-            subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
-        except Exception:
-            pass
 
     def _is_frozen(self, video_path: str) -> bool:
         return self._check_bitrate(video_path) or self._check_frames(video_path)
@@ -103,26 +90,18 @@ class GenericRecorder:
             return False
 
     def _check_frames(self, video_path: str) -> bool:
-        """5 farklı saniyeden kare çek, neredeyse hepsi aynıysa donuk."""
+        """5 farkli saniyeden kare cek, neredeyse hepsi ayniysa donuk."""
         try:
             hashes = []
             step = max(1, self.duration // 6)
-            for t in range(step, self.duration, step):
-                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
-                    tmp = f.name
-                try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                for i, t in enumerate(range(step, self.duration, step)):
+                    frame = os.path.join(tmp_dir, "fr{}.jpg".format(i))
                     cmd = [self.ffmpeg, "-y", "-ss", str(t), "-i", video_path,
-                           "-frames:v", "1", "-q:v", "5", tmp]
+                           "-frames:v", "1", "-q:v", "5", frame]
                     subprocess.run(cmd, capture_output=True, timeout=10, **_NW)
-                    if Path(tmp).exists():
-                        hashes.append(
-                            hashlib.md5(Path(tmp).read_bytes()).hexdigest()
-                        )
-                finally:
-                    try:
-                        os.unlink(tmp)
-                    except Exception:
-                        pass
+                    if Path(frame).exists():
+                        hashes.append(hashlib.md5(Path(frame).read_bytes()).hexdigest())
             if len(hashes) < 3:
                 return False
             most_common = max(set(hashes), key=hashes.count)
