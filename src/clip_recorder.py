@@ -78,13 +78,17 @@ class ClipRecorder:
         seen = set()
         files = []
         total_duration = 0.0
-        deadline = time.time() + target_duration + 60  # max bekleme
+        deadline = time.time() + target_duration + 20  # max bekleme
+        empty_loops = 0  # ust uste bos dongu sayaci
 
         while total_duration < target_duration and time.time() < deadline:
+            if empty_loops >= 4:  # 4 ust uste bos dongu = kamera takili, cik
+                break
             try:
                 r = self._session.get(stream_url, timeout=8)
                 if r.status_code != 200:
                     time.sleep(2)
+                    empty_loops += 1
                     continue
 
                 lines = r.text.strip().split("\n")
@@ -116,7 +120,15 @@ class ClipRecorder:
                     else:
                         i += 1
             except Exception:
-                pass
+                empty_loops += 1
+                time.sleep(1)
+                continue
+
+            # Yeni segment geldiyse sayaci sifirla, gelmediyse artir
+            if len(files) > 0 and total_duration > 0:
+                empty_loops = 0
+            else:
+                empty_loops += 1
 
             if total_duration < target_duration:
                 time.sleep(1)  # yeni segment bekleme
