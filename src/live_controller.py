@@ -48,15 +48,11 @@ class LiveController:
         self.yt_live  = yt_live
         self.ffmpeg   = shutil.which("ffmpeg") or "ffmpeg"
         self.owm_key  = config.get("openweathermap_api_key", "")
-        kick_url      = config.get("kick", {}).get("rtmp_url", "")
-        # tee muxer: YouTube + Kick aynı anda
-        if kick_url:
-            self.output = f"[f=flv]{rtmp_url}|[f=flv]{kick_url}"
-            self.tee    = True
-            log.info("Dual stream: YouTube + Kick")
-        else:
-            self.output = rtmp_url
-            self.tee    = False
+        # Artık direkt Kick'e değil, lokal MediaMTX relay'e gönder
+        # kick-relay.service MediaMTX'ten Kick'e -c copy ile iletir
+        self.output = "rtmp://127.0.0.1:1935/live/stream"
+        self.tee    = False
+        log.info(f"Stream hedefi: {self.output} (MediaMTX relay)")
 
         # Kamera listeleri
         cam_file = Path("data/live_cameras.json")
@@ -145,6 +141,7 @@ class LiveController:
             )
 
             cmd = [
+                "nice", "-n", "5",  # klip kaydi stream'den dusuk oncelik
                 self.ffmpeg,
                 "-tls_verify", "0",
                 "-reconnect", "1", "-reconnect_streamed", "1",
@@ -153,7 +150,8 @@ class LiveController:
                 "-t", str(CLIP_DURATION),
                 "-vf", vf,
                 "-c:v", "libx264", "-preset", "ultrafast",
-                "-b:v", "800k", "-maxrate", "900k", "-bufsize", "800k",
+                "-profile:v", "baseline",
+                "-b:v", "600k", "-maxrate", "700k", "-bufsize", "600k",
                 "-g", "48",
                 "-c:a", "aac", "-b:a", "64k",
                 "-movflags", "+faststart",
@@ -318,13 +316,13 @@ class LiveController:
 
     def _stream_clip(self, clip_path: str, city: str):
         """RAM'deki hazir klibi RTMP'ye gonder — encode yok, sadece copy."""
-        out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
         cmd = [
+            "nice", "-n", "-15",
             self.ffmpeg, "-re",
             "-i", clip_path,
             "-c", "copy",
             "-flush_packets", "1",
-            *out_args,
+            "-f", "flv", self.output,
         ]
         log.info(f"[{city}] Klip stream baslatiliyor (c:copy)")
         self._switch_to(cmd)
@@ -367,23 +365,25 @@ class LiveController:
             f"box=1:boxcolor=black@0.55:boxborderw=10"
         )
 
-        out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
         cmd = [
+            "nice", "-n", "-15",
             self.ffmpeg, "-re",
             "-tls_verify", "0",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "5",
             "-timeout", "10000000",
+            "-use_wallclock_as_timestamps", "1",
             "-i", stream_url,
             "-vf", vf,
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+            "-profile:v", "baseline",
             "-b:v", "800k", "-maxrate", "900k", "-bufsize", "800k",
             "-g", "48",
             "-c:a", "aac", "-b:a", "64k",
             "-avoid_negative_ts", "make_zero",
             "-flush_packets", "1",
-            *out_args,
+            "-f", "flv", self.output,
         ]
         log.info(f"FFmpeg baslatiyor (tek) — {city} {cam_name}")
         self._switch_to(cmd)
