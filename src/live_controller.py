@@ -86,8 +86,10 @@ class LiveController:
         weather = self._get_weather(city)
         self._start_ffmpeg_single(cam["stream_url"], city, cam["name"], weather)
 
-        deadline = time.time() + duration
-        last_poll = time.time()
+        deadline      = time.time() + duration
+        last_poll     = time.time()
+        start_time    = time.time()
+        dead_streak   = 0  # ard ardina oldu kamera sayisi
 
         while time.time() < deadline:
             # Superchat kontrol
@@ -99,11 +101,20 @@ class LiveController:
                     override_cam = self._next_cam(override)
                     if override_cam:
                         self._stream_single(override_cam, override, SINGLE_DURATION)
-                    return  # normal donguye don
+                    return
 
             # FFmpeg oldu mu?
             if self._proc and self._proc.poll() is not None:
-                log.warning(f"[TEK] FFmpeg kapandi, yeniden baslatiliyor...")
+                alive_secs = time.time() - start_time
+                if alive_secs < 10:
+                    dead_streak += 1
+                else:
+                    dead_streak = 0
+                if dead_streak >= 5:
+                    log.warning(f"[TEK] {city}: 5 ardisik offline kamera, sehir atlaniyor")
+                    return
+                log.warning(f"[TEK] FFmpeg kapandi ({alive_secs:.0f}s), yeniden baslatiliyor... (dead={dead_streak})")
+                start_time = time.time()
                 next_cam = self._next_cam(city)
                 if next_cam:
                     weather = self._get_weather(city)
@@ -154,24 +165,30 @@ class LiveController:
         font_arg = f"fontfile={FONT}:" if Path(FONT).exists() else ""
 
         vf = (
-            f"scale=1920:1080:force_original_aspect_ratio=increase,"
-            f"crop=1920:1080,"
+            f"scale=1280:720:force_original_aspect_ratio=increase,"
+            f"crop=1280:720,"
             f"drawtext={font_arg}"
             f"text='{overlay}':"
-            f"fontcolor=white:fontsize=36:"
-            f"x=20:y=20:"
-            f"box=1:boxcolor=black@0.55:boxborderw=12"
+            f"fontcolor=white:fontsize=28:"
+            f"x=16:y=16:"
+            f"box=1:boxcolor=black@0.55:boxborderw=10"
         )
 
         out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
         cmd = [
             self.ffmpeg, "-re",
             "-tls_verify", "0",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
+            "-timeout", "10000000",
             "-i", stream_url,
             "-vf", vf,
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-crf", "28", "-g", "60", "-b:v", "2500k",
-            "-c:a", "aac", "-b:a", "128k",
+            "-b:v", "1500k", "-maxrate", "1500k", "-bufsize", "3000k",
+            "-g", "60",
+            "-c:a", "aac", "-b:a", "96k",
+            "-avoid_negative_ts", "make_zero",
             *out_args,
         ]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_NW)
@@ -187,12 +204,13 @@ class LiveController:
 
         # xstack: 4 kamera 2x2 grid → 1920x1080
         # Her kamera 960x540
+        # Split: 4x 640x360 → 1280x720
         filter_complex = (
-            "[0:v]scale=960:540[a];"
-            "[1:v]scale=960:540[b];"
-            "[2:v]scale=960:540[c];"
-            "[3:v]scale=960:540[d];"
-            "[a][b][c][d]xstack=inputs=4:layout=0_0|960_0|0_540|960_540[v]"
+            "[0:v]scale=640:360[a];"
+            "[1:v]scale=640:360[b];"
+            "[2:v]scale=640:360[c];"
+            "[3:v]scale=640:360[d];"
+            "[a][b][c][d]xstack=inputs=4:layout=0_0|640_0|0_360|640_360[v]"
         )
 
         out_args = ["-f", "tee", self.output] if self.tee else ["-f", "flv", self.output]
@@ -202,7 +220,8 @@ class LiveController:
             "-filter_complex", filter_complex,
             "-map", "[v]",
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-crf", "28", "-g", "60", "-b:v", "4000k",
+            "-b:v", "2000k", "-maxrate", "2000k", "-bufsize", "4000k",
+            "-g", "60",
             "-an",
             *out_args,
         ]
