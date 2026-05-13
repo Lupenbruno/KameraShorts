@@ -64,12 +64,57 @@ class LiveController:
 
         self._proc: subprocess.Popen | None = None
         self._chat_token: str | None = None
-        self._superchat_city: str | None = None  # override: superchat ile secilen sehir
-        self._superchat_until: float = 0          # ne zamana kadar override aktif
+        self._superchat_city: str | None = None
+        self._superchat_until: float = 0
+
+        # Canli kamera onbellegi: {city: [cam, cam, ...]}
+        # Arka plan thread'i surekli gunceller, anlık geçiş icin hazir tutar
+        import threading
+        self._live_cache: dict[str, list] = {c: [] for c in CITY_ORDER}
+        self._cache_lock = threading.Lock()
+        self._cache_thread = threading.Thread(target=self._refresh_cache_loop, daemon=True)
+        self._cache_thread.start()
+
+    def _refresh_cache_loop(self):
+        """Arka planda surekli kamera probe eder, onbellegi gunceller."""
+        import itertools
+        while True:
+            for city in CITY_ORDER:
+                cams = self.cameras.get(city, [])
+                live = []
+                # Her sehirden max 3 canli kamera bul
+                for cam in cams:
+                    if len(live) >= 3:
+                        break
+                    if self._probe(cam["stream_url"]):
+                        live.append(cam)
+                with self._cache_lock:
+                    self._live_cache[city] = live
+                log.debug(f"[onbellek] {city}: {len(live)} canli kamera")
+            # 3 dakikada bir yenile
+            time.sleep(180)
+
+    def _next_cached_cam(self, city: str) -> dict | None:
+        """Onbellekten aninda kamera ver — probe bekleme yok."""
+        with self._cache_lock:
+            cams = self._live_cache.get(city, [])
+            if not cams:
+                return None
+            cam = cams[self.cam_idx[city] % len(cams)]
+            self.cam_idx[city] = (self.cam_idx[city] + 1) % len(cams)
+            return cam
 
     # ------------------------------------------------------------------
     def run(self):
         log.info("Canli yayin dongusu basliyor...")
+        # Onbellek dolana kadar kisa bekleme (max 30s)
+        log.info("Kamera onbellegi dolduruluyor (max 30s)...")
+        for _ in range(30):
+            with self._cache_lock:
+                filled = sum(1 for c in CITY_ORDER if self._live_cache[c])
+            if filled >= 2:
+                break
+            time.sleep(1)
         while True:
             try:
                 self._run_cycle()
@@ -80,7 +125,8 @@ class LiveController:
     def _run_cycle(self):
         """1 tam dongu: 4 sehir x 3dk + 10dk split."""
         for city in CITY_ORDER:
-            cam = self._find_live_cam(city)
+            # Once onbellekten dene, yoksa canli ara
+            cam = self._next_cached_cam(city) or self._find_live_cam(city)
             if cam:
                 self._stream_single(cam, city, SINGLE_DURATION)
             else:
@@ -116,10 +162,13 @@ class LiveController:
             # FFmpeg oldu mu?
             if self._proc and self._proc.poll() is not None:
                 alive_secs = time.time() - start_time
-                # Aninda yedek sehre gec — ayni sehirde arama yapma
                 fallback = CITY_FALLBACK.get(city)
-                log.warning(f"[TEK] {city} kamera dustu ({alive_secs:.0f}s) → {fallback} yedegine geciliyor")
-                fallback_cam = self._find_live_cam(fallback) if fallback else None
+                log.warning(f"[TEK] {city} dustu ({alive_secs:.0f}s) → {fallback} onbelleginden anlık gecis")
+                # Once onbellekten aninda al — probe bekleme yok
+                fallback_cam = self._next_cached_cam(fallback) if fallback else None
+                # Onbellekte yoksa canli ara (son care)
+                if not fallback_cam and fallback:
+                    fallback_cam = self._find_live_cam(fallback)
                 if fallback_cam:
                     self._start_ffmpeg_single(
                         fallback_cam["stream_url"], fallback,
