@@ -23,6 +23,7 @@ Kullanım:
 import argparse
 import json
 import logging
+import random
 import signal
 import shutil
 import subprocess
@@ -54,6 +55,27 @@ STATS_FILE = Path("data/harvester_stats.json")
 USED_PLATES_FILE = Path("data/harvester_ankara_plates.json")
 DEDUP_HOURS = 24
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+# Algoritma cezasından kaçınmak için aktif saatler (verim analizinden):
+# SKIP: 00-05 (gece, kameralar zemin görür), 07 (anomali), 20 (prime-time rekabet)
+# ACTIVE: 06, 08-19, 21-23 — 17 saatlik pencere, max 17 video/gün
+ACTIVE_HOURS = {6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23}
+
+# Başlık rotasyonu: tek format YouTube "Repetitive Content" cezasına yol açar.
+# 5 farklı şablon random seçilir.
+TITLE_TEMPLATES = [
+    "{date_short} - Ankara Canlı Trafik #Shorts",
+    "Şu An Ankara: {weather_short} | Canlı Kamera #Shorts",
+    "Ankara EGO Otobüs Kamerası — {date_short} #Shorts",
+    "Ankara Yolları Canlı: {gun} {temp}°C #Shorts",
+    "Canlı Ankara | {gun_saat} — Şehir Trafiği #Shorts",
+]
+
+# Hashtag listesi — algoritmik sınıflandırma için
+HASHTAGS = (
+    "#Ankara #AnkaraCanlı #CanlıTrafik #EGO #Şehir #Trafik "
+    "#Turkey #Türkiye #LiveCamera #CanlıKamera #Shorts #AnkaraTrafik"
+)
 
 
 def turkce_tarih(dt: datetime) -> str:
@@ -290,31 +312,117 @@ class AnkaraShortsProducer:
 
     def _build_metadata(self, now: datetime,
                         weather: Optional[dict]) -> dict:
-        date_str = f"{now.day}/{now.month}/{now.year} {now.strftime('%H:%M')}"
-        title = f"{date_str} - Ankara Canlı Trafik #Shorts"
-        tags = ["ankara", "ankara canlı", "ego", "canlı kamera",
-                "shorts", "trafik", "turkey"]
+        date_short = f"{now.day}/{now.month}/{now.year} {now.strftime('%H:%M')}"
+        gun = GUNLER[now.weekday()]
+        gun_saat = f"{gun} {now.strftime('%H:%M')}"
+        temp = weather["temp"] if weather else "?"
+        weather_short = (f"{weather['condition']} {weather['temp']}°C"
+                         if weather else "Canlı")
+
+        # Random başlık (Repetitive Content cezasından kaçınma)
+        template = random.choice(TITLE_TEMPLATES)
+        title = template.format(
+            date_short=date_short, gun=gun, gun_saat=gun_saat,
+            temp=temp, weather_short=weather_short,
+        )
+
+        tags = ["ankara", "ankara canlı", "ankara trafik", "ego",
+                "canlı kamera", "canlı trafik", "shorts", "trafik",
+                "turkey", "türkiye", "live camera", "şehir", "kamera"]
+
         weather_line = ""
         if weather:
             weather_line = (f"\n☁️ Hava: {weather['emoji']} "
                             f"{weather['temp']}°C {weather['condition']}\n")
+
         description = (
-            f"Ankara canlı kamera görüntüleri.\n"
+            f"Ankara canlı kamera görüntüleri — EGO otobüs içi kamera.\n"
             f"📅 {turkce_tarih(now)}, saat {now.strftime('%H:%M')}.\n"
             f"{weather_line}"
-            f"\n🎥 Otomatik üretim — KameraShorts Ankara Shorts."
+            f"\n👇 Sizce burası Ankara'nın hangi mahallesi? "
+            f"Yorumlara yazın!\n"
+            f"🔔 Her saat yeni bir canlı kamera için ABONE OL.\n"
+            f"\n🎥 Otomatik üretim — KameraShorts.\n"
+            f"\n" + HASHTAGS
         )
-        tts_text = (
-            f"Ankara. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}.")
+
+        # TTS: tarih + hava + 2 CTA (yorum + abone)
+        tts_text = f"Ankara. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
         if weather:
             tts_text += f" Hava {weather['condition']}, {weather['temp']} derece."
+        tts_text += " Sizce burası Ankara'nın hangi mahallesi? Yorumlara yazın."
+        tts_text += " Beğendiyseniz abone olun, her saat yeni bir canlı kamera!"
+
         return {
             "title": title[:100],
             "description": description,
             "tags": tags,
             "city": "Ankara",
             "tts_text": tts_text,
+            "category_id": "22",
         }
+
+    # ── CTA Overlays (ABONE OL + YORUM) — algoritma engagement booster ───
+
+    def _add_cta_overlays(self, clip_path: str) -> str:
+        """AudioMixer'dan sonra: 15-18s "ABONE OL" + 30-40s "YORUM YAZ" CTA.
+
+        DejaVu Sans Bold emoji desteklemediği için ASCII karakterler (▶ ▼).
+        Renkli kutu + büyük yazı + zaman-bazlı enable filter.
+        """
+        clip = Path(clip_path)
+        if not clip.exists():
+            return clip_path
+        out = clip.parent / (clip.stem + "_cta.mp4")
+        font = FONT_PATH
+
+        # 15-18s arası ABONE OL (kırmızı arka plan, beyaz yazı, ekran ortasında alt 1/3)
+        # 30-40s arası YORUM YAZ (sarı arka plan, siyah yazı, üst 1/4)
+        vf = (
+            f"drawtext=fontfile={font}:text='▶ ABONE OL':"
+            f"x=(w-text_w)/2:y=h*0.7:fontsize=72:fontcolor=white:"
+            f"box=1:boxcolor=red@0.9:boxborderw=24:"
+            f"shadowx=3:shadowy=3:shadowcolor=black@0.8:"
+            f"enable='between(t\\,15\\,18)',"
+            f"drawtext=fontfile={font}:text='▼ SIZCE BURASI NERESI?':"
+            f"x=(w-text_w)/2:y=h*0.15:fontsize=54:fontcolor=black:"
+            f"box=1:boxcolor=yellow@0.95:boxborderw=18:"
+            f"shadowx=2:shadowy=2:shadowcolor=black@0.6:"
+            f"enable='gt(t\\,30)',"
+            f"drawtext=fontfile={font}:text='Yorumlara yaz ▼':"
+            f"x=(w-text_w)/2:y=h*0.22:fontsize=38:fontcolor=white:"
+            f"box=1:boxcolor=black@0.75:boxborderw=10:"
+            f"enable='gt(t\\,30)'"
+        )
+        cmd = [
+            self.ffmpeg, "-y", "-hide_banner", "-loglevel", "warning",
+            "-i", str(clip),
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:a", "copy",
+            "-movflags", "+faststart",
+            str(out),
+        ]
+        try:
+            result = subprocess.run(
+                cmd, capture_output=True, timeout=180, check=False,
+            )
+            if result.returncode != 0 or not out.exists() or out.stat().st_size < 100_000:
+                err = (result.stderr[-300:].decode("utf-8", errors="replace")
+                       if result.stderr else "")
+                self.log.warning(f"CTA overlay hatası, orjinal ile devam: {err[:200]}")
+                return str(clip)
+            # Orjinali sil, CTA versiyonunu orjinal yola taşı
+            clip.unlink(missing_ok=True)
+            out.rename(clip)
+            self.log.info("CTA overlay eklendi (ABONE OL + YORUM)")
+            return str(clip)
+        except subprocess.TimeoutExpired:
+            self.log.warning("CTA overlay timeout, orjinal ile devam")
+            return str(clip)
+        except Exception as e:
+            self.log.warning(f"CTA overlay exception: {e}")
+            return str(clip)
 
     # ── Ana akış ────────────────────────────────────────────────────────
 
@@ -349,15 +457,21 @@ class AnkaraShortsProducer:
         metadata = self._build_metadata(now, weather)
         self.log.info(f"Başlık: {metadata['title']}")
 
-        # Audio mix
+        # Audio mix (TTS + ambient + sağ üst hava drawtext)
         try:
             clip = self.mixer.add_audio(
                 clip, metadata, location="Ankara",
                 weather=weather, duration=40,
             )
-            self.log.info("Ses karıştırıldı")
+            self.log.info("Ses karıştırıldı (TTS + 2 CTA cümlesi dahil)")
         except Exception as e:
             self.log.warning(f"Ses ekleme hatası (orjinal video ile devam): {e}")
+
+        # CTA overlay (15-18s ABONE OL + 30-40s SIZCE BURASI NERESI)
+        try:
+            clip = self._add_cta_overlays(clip)
+        except Exception as e:
+            self.log.warning(f"CTA overlay hatası (orjinal ile devam): {e}")
 
         # Upload
         upload_success = False
@@ -426,11 +540,25 @@ class AnkaraShortsProducer:
         hcfg = self.config.get("harvester", {})
         ankara_minute = hcfg.get("ankara_minute", 15)
 
-        schedule.every().hour.at(f":{ankara_minute:02d}").do(self.run_slot)
+        def _run_if_active():
+            """Saat filtresi: zayıf performanslı saatler atlanır."""
+            h = datetime.now().hour
+            if h not in ACTIVE_HOURS:
+                self.log.info(
+                    f"Saat {h:02d} aktif pencerede değil "
+                    f"(SKIP: 00-05, 07, 20), slot atlandı")
+                return
+            self.run_slot()
+
+        schedule.every().hour.at(f":{ankara_minute:02d}").do(_run_if_active)
+        active_str = ", ".join(f"{h:02d}" for h in sorted(ACTIVE_HOURS))
         self.log.info(
-            f"⏰ Zamanlayıcı: Ankara Shorts her saat :{ankara_minute:02d}")
+            f"⏰ Zamanlayıcı: Her saat :{ankara_minute:02d} "
+            f"(aktif saatler: {active_str})")
         self.log.info(
             "ℹ Stream'den BAĞIMSIZ servis — direct EGO HLS, YOLO subprocess")
+        self.log.info(
+            "ℹ Algoritma dostu: 5 random başlık, hashtag, görsel+işitsel CTA")
         self.log.info(
             "ℹ İstanbul/Çorum/Konya: YouTube upload YOK, sadece stream içeriği")
 
