@@ -103,6 +103,15 @@ class StreamState:
         self._broadcast_offline_snap: list = []
         self._offline_since: dict = {"youtube": None, "kick": None}
 
+        # ── Yeni: upload geçmişi, plakalar, sonraki shorts ───────────────
+        self._recent_uploads: list = []
+        self._ankara_plates: list = []
+        self._ankara_plates_24h: int = 0
+        self._next_shorts_seconds: Optional[int] = None
+        self._next_shorts_time: str = ""
+        self._cpu_history: deque = deque(maxlen=120)  # 6 dakika
+        self._ram_history: deque = deque(maxlen=120)
+
     def poll(self):
         path = Path(self.log_path)
         if not path.exists():
@@ -616,6 +625,15 @@ class StreamState:
                 # TCP YouTube/Kick durumu (alarm bar için)
                 "tcp": self._tcp_status_snap,
                 "broadcast_offline": self._broadcast_offline_snap,
+
+                # Yeni: upload geçmişi, plakalar, geri sayım, grafikler
+                "recent_uploads": self._recent_uploads,
+                "ankara_plates": self._ankara_plates,
+                "ankara_plates_24h": self._ankara_plates_24h,
+                "next_shorts_seconds": self._next_shorts_seconds,
+                "next_shorts_time": self._next_shorts_time,
+                "cpu_history": list(self._cpu_history),
+                "ram_history": list(self._ram_history),
             }
 
     def sample_resources(self):
@@ -689,6 +707,114 @@ class StreamState:
                 self.resources_ts = time.strftime("%H:%M:%S")
         except Exception as e:
             print(f"[resources] Hata: {e}")
+
+    def sample_uploads(self):
+        """pipeline.log'dan son 15 UPLOADED kaydını oku."""
+        try:
+            log_path = Path("/opt/KameraShorts/logs/pipeline.log")
+            if not log_path.exists():
+                return
+            with open(log_path, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - 50000))
+                tail = f.read().decode("utf-8", errors="replace")
+            uploads = []
+            from datetime import datetime as _dt
+            for line in tail.splitlines():
+                if "UPLOADED" not in line:
+                    continue
+                try:
+                    parts = line.split(" UPLOADED ", 1)
+                    ts_str = parts[0]
+                    rest = parts[1]
+                    vid_id, _, title = rest.partition(" | ")
+                    dt = _dt.fromisoformat(ts_str)
+                    age = int((_dt.now() - dt).total_seconds())
+                    uploads.append({
+                        "video_id": vid_id.strip(),
+                        "title": title.strip()[:80],
+                        "time": dt.strftime("%H:%M"),
+                        "date": dt.strftime("%d.%m"),
+                        "age_sec": age,
+                        "url": f"https://youtube.com/watch?v={vid_id.strip()}",
+                    })
+                except Exception:
+                    continue
+            uploads.reverse()
+            with self._lock:
+                self._recent_uploads = uploads[:15]
+        except Exception as e:
+            print(f"[uploads] Hata: {e}")
+
+    def sample_plates(self):
+        """harvester_ankara_plates.json'dan son 24h plakalar."""
+        try:
+            p = Path("/opt/KameraShorts/data/harvester_ankara_plates.json")
+            if not p.exists():
+                return
+            data = json.loads(p.read_text(encoding="utf-8"))
+            from datetime import datetime as _dt, timedelta as _td
+            cutoff = _dt.now() - _td(hours=24)
+            recent = []
+            for plate, ts_str in data.items():
+                try:
+                    dt = _dt.fromisoformat(ts_str)
+                    if dt > cutoff:
+                        recent.append({
+                            "plate": plate,
+                            "time": dt.strftime("%H:%M"),
+                            "age_sec": int((_dt.now() - dt).total_seconds()),
+                        })
+                except Exception:
+                    continue
+            recent.sort(key=lambda x: x["age_sec"])
+            with self._lock:
+                self._ankara_plates = recent[:20]
+                self._ankara_plates_24h = len(recent)
+        except Exception as e:
+            print(f"[plates] Hata: {e}")
+
+    def sample_next_shorts(self):
+        """Sonraki Ankara Shorts saatini hesapla (her saat :15)."""
+        try:
+            from datetime import datetime as _dt
+            now = _dt.now()
+            # Bir sonraki :15
+            ankara_min = 15
+            if now.minute < ankara_min:
+                next_dt = now.replace(minute=ankara_min, second=0,
+                                       microsecond=0)
+            else:
+                next_dt = now.replace(minute=ankara_min, second=0,
+                                       microsecond=0)
+                next_dt = next_dt.replace(hour=(next_dt.hour + 1) % 24)
+                if next_dt.hour == 0 and now.hour == 23:
+                    from datetime import timedelta as _td
+                    next_dt = next_dt + _td(days=1)
+            secs = int((next_dt - now).total_seconds())
+            with self._lock:
+                self._next_shorts_seconds = max(0, secs)
+                self._next_shorts_time = next_dt.strftime("%H:%M")
+        except Exception as e:
+            print(f"[next_shorts] Hata: {e}")
+
+    def sample_cpu_ram_history(self):
+        """Son resources okumadan grafikler için zaman serisi tut."""
+        try:
+            ts = time.strftime("%H:%M:%S")
+            with self._lock:
+                self._cpu_history.append({
+                    "t": ts,
+                    "load": self.resources.get("load1", 0),
+                    "ffmpeg": self.resources.get("ffmpeg_total_cpu", 0),
+                })
+                self._ram_history.append({
+                    "t": ts,
+                    "used": self.resources.get("mem_used_mb", 0),
+                })
+        except Exception as e:
+            print(f"[history] Hata: {e}")
 
     def sample_tcp(self):
         """TCP YouTube/Kick durumu + offline tespiti (alarm bar için)."""
@@ -2047,6 +2173,22 @@ def _poll_loop(interval: float = 3.0):
                 _state.sample_tcp()
             except Exception as e:
                 print(f"[poll] TCP hata: {e}")
+            try:
+                _state.sample_uploads()
+            except Exception as e:
+                print(f"[poll] uploads hata: {e}")
+            try:
+                _state.sample_plates()
+            except Exception as e:
+                print(f"[poll] plates hata: {e}")
+            try:
+                _state.sample_next_shorts()
+            except Exception as e:
+                print(f"[poll] next_shorts hata: {e}")
+            try:
+                _state.sample_cpu_ram_history()
+            except Exception as e:
+                print(f"[poll] history hata: {e}")
         counter += 1
         time.sleep(interval)
 
