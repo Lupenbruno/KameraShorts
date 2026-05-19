@@ -72,6 +72,11 @@ class CameraResolver:
                 self._current = new
                 self._chosen_at = now
                 log.info("[%s] kamera secildi: %s", self.city, new["name"])
+                try:
+                    db.add_event("ingest-" + self.city, "camera_change",
+                                 "yeni kamera: " + new["name"], "info")
+                except Exception:
+                    pass
         if self._relay_dvr and (now - self._last_relay_renew) > self.cfg.get(
             "relay_renew_seconds", 33
         ):
@@ -103,8 +108,16 @@ class CameraResolver:
                       and v.get("is_visible")]
         if not active:
             return None
+        # Once hizla siralan top 20'den rastgele sec — ayni otobus loop'una sokulmayalim
         active.sort(key=lambda v: -(float(v.get("speed", 0) or 0)))
-        v = active[0]
+        candidates = active[:min(20, len(active))]
+        # Bir onceki secilen otobusu hatirla ve farkli birini sec
+        prev_dvr = self._relay_dvr
+        candidates = [c for c in candidates
+                      if c.get("dvr_serial_number") != prev_dvr]
+        if not candidates:
+            candidates = active[:5]
+        v = random.choice(candidates)
         plate = v.get("license_plate") or v["dvr_serial_number"]
         self._relay_dvr = v["dvr_serial_number"]
         self._relay_provider = v.get("source", "ego")
@@ -129,7 +142,12 @@ class CameraResolver:
         if not streams:
             return None
         url = random.choice(streams)
-        return {"name": url.rsplit("/", 2)[-2], "stream_url": url}
+        # URL'den anlamli isim cikar: son path bileseninin .m3u8/.stream extension'ini cikar
+        last = url.rstrip("/").rsplit("/", 1)[-1]
+        name = last.replace(".m3u8", "").replace(".stream", "").replace("playlist", "")
+        if not name:
+            name = url.rsplit("/", 2)[-2]
+        return {"name": name, "stream_url": url}
 
     def _start_relay(self):
         if not self._relay_dvr:
@@ -304,6 +322,11 @@ def run_ingest(city: str, cfg: dict, shutdown):
 
         if time.time() - last_progress > 30:
             log.warning("[%s] 30s segment yok -> kamera degistiriliyor", city)
+            try:
+                db.add_event("ingest-" + city, "stale",
+                             "30s segment yok, kamera degisecek", "warn")
+            except Exception:
+                pass
             resolver._current = None
             last_progress = time.time()
 
@@ -351,12 +374,15 @@ def _fetch_and_save(url, out_dir, city, cam, dur, seq, ttl, session, ffmpeg):
 
 
 def _trim_old_segments(out_dir: Path, max_keep: int):
-    """Halka tampon: en yeni max_keep disindakileri sil."""
+    """Halka tampon: en yeni max_keep disindakileri hem disk'ten hem DB'den sil."""
     try:
         segs = sorted(out_dir.glob("*.ts"), key=lambda p: p.stat().st_mtime,
                       reverse=True)
         for old in segs[max_keep:]:
             try:
+                # DB kaydini da temizle (mixer'ın ghost segment'e ulaşmasını önle)
+                seg_id = old.stem
+                db.conn().execute("DELETE FROM segments WHERE id = ?", (seg_id,))
                 old.unlink(missing_ok=True)
             except Exception:
                 pass

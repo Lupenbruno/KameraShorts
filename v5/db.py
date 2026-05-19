@@ -73,6 +73,30 @@ CREATE TABLE IF NOT EXISTS upload_log (
 
 CREATE INDEX IF NOT EXISTS idx_upload_today
     ON upload_log(city, uploaded_at DESC);
+
+CREATE TABLE IF NOT EXISTS mixer_state (
+    id             INTEGER PRIMARY KEY CHECK (id = 1),
+    active_city    TEXT,
+    block_started  INTEGER,
+    block_duration INTEGER,
+    last_speed     REAL,
+    last_fps       REAL,
+    last_frame     INTEGER,
+    last_bitrate_k INTEGER,
+    last_update    INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts             INTEGER NOT NULL,
+    service        TEXT NOT NULL,
+    kind           TEXT NOT NULL,
+    severity       TEXT NOT NULL,
+    message        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_recent
+    ON events(ts DESC);
 """
 
 
@@ -198,6 +222,89 @@ def cleanup_expired() -> int:
     cur = conn().execute(
         "DELETE FROM segments WHERE expires_at < ?",
         (int(time.time()),),
+    )
+    return cur.rowcount
+
+
+def set_mixer_block_start(city: str, duration: int) -> None:
+    """Mixer yeni şehir bloğuna başlarken çağırır."""
+    now = int(time.time())
+    conn().execute(
+        """INSERT INTO mixer_state
+           (id, active_city, block_started, block_duration, last_update)
+           VALUES (1, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             active_city=excluded.active_city,
+             block_started=excluded.block_started,
+             block_duration=excluded.block_duration,
+             last_speed=NULL, last_fps=NULL, last_frame=NULL,
+             last_bitrate_k=NULL,
+             last_update=excluded.last_update""",
+        (city, now, duration, now),
+    )
+
+
+def update_mixer_progress(
+    speed: float, fps: float, frame: int, bitrate_k: int = 0,
+    active_city: Optional[str] = None,
+) -> None:
+    """Her FFmpeg stats satırında çağrılır.
+
+    active_city: tek-FFmpeg modunda hangi şehir gösteriliyor (zaman bazlı).
+    None geçilirse mevcut active_city korunur.
+    """
+    if active_city is None:
+        conn().execute(
+            """UPDATE mixer_state SET
+                 last_speed=?, last_fps=?, last_frame=?, last_bitrate_k=?,
+                 last_update=?
+               WHERE id=1""",
+            (speed, fps, frame, bitrate_k, int(time.time())),
+        )
+    else:
+        conn().execute(
+            """UPDATE mixer_state SET
+                 active_city=?, last_speed=?, last_fps=?, last_frame=?,
+                 last_bitrate_k=?, last_update=?
+               WHERE id=1""",
+            (active_city, speed, fps, frame, bitrate_k, int(time.time())),
+        )
+
+
+def get_mixer_state() -> Optional[dict]:
+    """Dashboard okur."""
+    row = conn().execute(
+        "SELECT * FROM mixer_state WHERE id=1"
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def add_event(service: str, kind: str, message: str,
+              severity: str = "info") -> None:
+    """Tüm servisler dashboard timeline için event yazar."""
+    conn().execute(
+        """INSERT INTO events(ts, service, kind, severity, message)
+           VALUES (?, ?, ?, ?, ?)""",
+        (int(time.time()), service, kind, severity, message[:300]),
+    )
+
+
+def recent_events(limit: int = 25) -> list[dict]:
+    """Dashboard timeline."""
+    return [
+        dict(r) for r in conn().execute(
+            "SELECT * FROM events ORDER BY ts DESC LIMIT ?", (limit,),
+        )
+    ]
+
+
+def prune_events(keep: int = 200) -> int:
+    """En son keep tane event'i tut, kalanları sil."""
+    cur = conn().execute(
+        """DELETE FROM events WHERE id NOT IN (
+             SELECT id FROM events ORDER BY ts DESC LIMIT ?
+           )""",
+        (keep,),
     )
     return cur.rowcount
 
