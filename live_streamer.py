@@ -567,7 +567,7 @@ class CityCollector:
                     try:
                         sr = sess.get(url, timeout=12, stream=True)
                         if sr.status_code != 200:
-                            log.warning(f"[collector:{city_name}] Segment HTTP {sr.status_code}: {url[-50:]}")
+                            log.debug(f"[collector:{city_name}] Segment HTTP {sr.status_code}: {url[-50:]}") if sr.status_code == 403 else log.warning(f"[collector:{city_name}] Segment HTTP {sr.status_code}: {url[-50:]}")
                             seg_fail += 1
                             if seg_fail >= self.SEG_FAIL_LIMIT:
                                 log.warning(f"[collector:{city_name}] {self.SEG_FAIL_LIMIT} ardışık segment hatası → kamera değiştirilecek")

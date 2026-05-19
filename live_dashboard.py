@@ -95,6 +95,14 @@ class StreamState:
         self.harvester_active: bool = False     # kamerashorts-harvester.service aktif mi
         self.harvester_uptime_sec: int = 0      # Daemon uptime (saniye)
 
+        # ── TCP YouTube/Kick durumu + yayın offline tespiti ───────────────
+        self._tcp_status_snap: dict = {
+            "youtube": {"active": False, "remote": "", "send_q": 0},
+            "kick":    {"active": False, "remote": "", "send_q": 0},
+        }
+        self._broadcast_offline_snap: list = []
+        self._offline_since: dict = {"youtube": None, "kick": None}
+
     def poll(self):
         path = Path(self.log_path)
         if not path.exists():
@@ -604,6 +612,10 @@ class StreamState:
                     "uptime_sec": self.harvester_uptime_sec,
                     "cities": self.harvester,
                 },
+
+                # TCP YouTube/Kick durumu (alarm bar için)
+                "tcp": self._tcp_status_snap,
+                "broadcast_offline": self._broadcast_offline_snap,
             }
 
     def sample_resources(self):
@@ -677,6 +689,51 @@ class StreamState:
                 self.resources_ts = time.strftime("%H:%M:%S")
         except Exception as e:
             print(f"[resources] Hata: {e}")
+
+    def sample_tcp(self):
+        """TCP YouTube/Kick durumu + offline tespiti (alarm bar için)."""
+        try:
+            r = subprocess.run(
+                ["ss", "-tnp"], capture_output=True, text=True, timeout=3,
+            )
+            yt = None
+            kick = None
+            for line in r.stdout.splitlines():
+                if "ffmpeg" not in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                try:
+                    send_q = int(parts[2])
+                    remote = parts[4]
+                except Exception:
+                    continue
+                if remote.endswith(":1935") and "127.0.0.1" not in remote:
+                    yt = {"active": True, "remote": remote, "send_q": send_q}
+                elif ":443" in remote and (remote.startswith("35.") or
+                                            "live-video" in remote):
+                    kick = {"active": True, "remote": remote, "send_q": send_q}
+            now = int(time.time())
+            tcp = {
+                "youtube": yt or {"active": False, "remote": "", "send_q": 0},
+                "kick":    kick or {"active": False, "remote": "", "send_q": 0},
+            }
+            # Offline tracking
+            offline = []
+            for k in ("youtube", "kick"):
+                if not tcp[k]["active"]:
+                    if self._offline_since[k] is None:
+                        self._offline_since[k] = now
+                    secs = now - self._offline_since[k]
+                    offline.append({"name": k.upper(), "since_seconds": secs})
+                else:
+                    self._offline_since[k] = None
+            with self._lock:
+                self._tcp_status_snap = tcp
+                self._broadcast_offline_snap = offline
+        except Exception as e:
+            print(f"[tcp] Hata: {e}")
 
     def sample_harvester(self):
         """Harvester istatistiklerini data/harvester_stats.json'dan yükle + servis durumu."""
@@ -910,10 +967,127 @@ HTML = r"""<!DOCTYPE html>
   .harv-cell .h-status-bad{color:var(--red)}
   .harv-cell .h-link{display:block;margin-top:4px;font-size:10px;color:var(--blue);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .harv-cell .h-link:hover{color:#60a5fa}
+
+  /* ─── Yayın offline alarm bar ─── */
+  .alarm-bar{display:none;background:linear-gradient(90deg,#7f1d1d,#450a0a);
+             border:1px solid var(--red);border-radius:10px;padding:14px 18px;
+             margin-bottom:12px;align-items:center;gap:14px;
+             animation:alarm-pulse 1.5s infinite}
+  .alarm-bar.show{display:flex}
+  .alarm-icon{font-size:28px}
+  .alarm-content{flex:1}
+  .alarm-title{font-size:14px;font-weight:800;color:#fff;letter-spacing:0.04em}
+  .alarm-detail{font-size:11px;color:#fca5a5;margin-top:2px}
+  @keyframes alarm-pulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}
+    50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}
+  }
+
+  /* ─── Yardim ve Tani butonlari (sag alt) ─── */
+  .fab{position:fixed;right:20px;width:48px;height:48px;border-radius:50%;
+       border:none;font-size:22px;font-weight:700;cursor:pointer;z-index:99;
+       transition:transform .2s;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+  .fab:hover{transform:scale(1.1)}
+  .fab.help{bottom:20px;background:#6366f1;color:#fff}
+  .fab.diag{bottom:80px;background:#fbbf24;color:#7c2d12}
+  .fab.diag.loading{animation:fab-spin 1s linear infinite}
+  @keyframes fab-spin{to{transform:rotate(360deg)}}
+
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+            z-index:100;align-items:flex-start;justify-content:center;
+            padding:30px 20px;overflow-y:auto}
+  .modal-bg.open{display:flex}
+  .modal-x{background:#0f172a;border:1px solid #1e293b;border-radius:14px;
+           max-width:880px;width:100%;padding:24px;position:relative;
+           color:#e2e8f0;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .modal-x h2{font-size:18px;color:#fff;margin-bottom:8px}
+  .modal-x h3{font-size:13px;color:#a5b4fc;margin-top:14px;margin-bottom:6px;
+              text-transform:uppercase;letter-spacing:0.06em}
+  .modal-x p,.modal-x li{font-size:12px;line-height:1.6;color:#cbd5e1}
+  .modal-x ul{padding-left:20px;margin-bottom:8px}
+  .modal-x code{background:#1e293b;padding:2px 6px;border-radius:3px;
+                color:#fbbf24;font-family:monospace;font-size:11px}
+  .modal-close{position:absolute;top:14px;right:14px;background:none;border:none;
+               color:#64748b;font-size:24px;cursor:pointer;width:32px;height:32px;
+               border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .modal-close:hover{background:#1e293b;color:#fff}
+  .diag-row{display:flex;gap:10px;padding:8px 12px;background:#1e293b;
+            border-radius:6px;margin-bottom:5px;align-items:flex-start}
+  .diag-sec{flex-shrink:0;padding:2px 8px;background:rgba(239,68,68,.2);
+            color:var(--red);border-radius:3px;font-size:10px;font-weight:700;
+            text-transform:uppercase}
+  .diag-msg{flex:1;font-size:11.5px;color:#cbd5e1}
+  .diag-ok{padding:30px;text-align:center;background:rgba(34,197,94,.1);
+           border-radius:8px;color:var(--green);font-weight:600}
 </style>
 </head>
 <body>
+
+<!-- Floating buttons -->
+<button class="fab help" id="fab-help" title="Sistemi tani (yardim)">?</button>
+<button class="fab diag" id="fab-diag" title="Sistem tanisi calistir">🔍</button>
+
+<!-- Help modal -->
+<div class="modal-bg" id="modal-help">
+  <div class="modal-x">
+    <button class="modal-close" id="close-help">×</button>
+    <h2>KameraShorts v4 — Sistem Rehberi</h2>
+    <p style="color:#64748b;font-size:11px">Kapatmak için <code>×</code>, modal dışı, veya <code>Esc</code></p>
+
+    <h3>Mimari</h3>
+    <p><b>BatchBuilder</b>: 4 şehir paralel HLS dl + transcode_city normalize + concat-remux → batch_NNNN.ts (~250 MB, ~16 dk içerik)</p>
+    <p><b>StreamManager</b>: Tek FFmpeg + named pipe (FIFO) + SCHED_FIFO writer thread + clock_nanosleep rate-control → MediaMTX → YouTube + Kick</p>
+    <p><b>Harvester</b>: Saatlik :15 Ankara Shorts (direct EGO HLS, YOLO subprocess, edge-tts, YouTube upload)</p>
+
+    <h3>Servisler</h3>
+    <ul>
+      <li><code>kamerashorts-live</code> — ana stream (live_streamer.py)</li>
+      <li><code>kamerashorts-harvester</code> — saatlik Shorts (harvester.py)</li>
+      <li><code>kamerashorts-dashboard</code> — bu sayfa (port 5000)</li>
+      <li><code>mediamtx</code> — RTMP relay, tee onfail=ignore → YouTube + Kick</li>
+    </ul>
+
+    <h3>Sorun çözme</h3>
+    <ul>
+      <li><b>Alarm bar görünür</b>: <code>systemctl restart mediamtx</code> + 10s bekle</li>
+      <li><b>Speed &lt;0.85x</b>: CPU bottleneck (transcode aktif olabilir, batch sürerken normal)</li>
+      <li><b>Frame counter donmuş</b>: <code>systemctl restart kamerashorts-live</code></li>
+      <li><b>Son upload &gt;2sa önce</b>: harvester subprocess YOLO yüklemiyor olabilir, <code>journalctl -u kamerashorts-harvester -f</code></li>
+      <li><b>Hızlı tanı</b>: 🔍 düğmesi (sağ alt) — 11 bölüm tarar</li>
+      <li><b>CLI</b>: <code>cd /opt/KameraShorts && python3 diagnose.py --short</code></li>
+    </ul>
+
+    <h3>Önemli yollar</h3>
+    <ul>
+      <li><code>/opt/KameraShorts/</code> — kod</li>
+      <li><code>/var/log/kamerashorts-live.log</code> — stream log</li>
+      <li><code>/opt/KameraShorts/logs/pipeline.log</code> — upload kayıtları</li>
+      <li><code>/tmp/ks_v4/batch_*.ts</code> — aktif batch dosyaları</li>
+      <li><code>/etc/kamerashorts/secrets.env</code> — YT/Kick keys (chmod 600)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Diagnose result modal -->
+<div class="modal-bg" id="modal-diag">
+  <div class="modal-x">
+    <button class="modal-close" id="close-diag">×</button>
+    <h2>🔍 Sistem Tanı Raporu</h2>
+    <p style="color:#64748b;font-size:11px" id="diag-ts">—</p>
+    <div id="diag-body" style="margin-top:12px">Tanı çalıştırılıyor...</div>
+  </div>
+</div>
+
 <div class="wrap">
+
+  <!-- Yayın offline alarm -->
+  <div class="alarm-bar" id="alarm-bar">
+    <div class="alarm-icon">🚨</div>
+    <div class="alarm-content">
+      <div class="alarm-title" id="alarm-title">YAYIN OFFLINE</div>
+      <div class="alarm-detail" id="alarm-detail"></div>
+    </div>
+  </div>
 
   <!-- HEADER -->
   <div class="header">
@@ -1655,6 +1829,76 @@ async function refresh() {
   document.getElementById('log-spin').style.display = 'none';
 }
 
+// ─── Alarm bar (yayin offline tespiti) ─────────────────────────────────────
+async function updateAlarm() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const bar = document.getElementById('alarm-bar');
+    if (d.broadcast_offline && d.broadcast_offline.length > 0) {
+      bar.classList.add('show');
+      const list = d.broadcast_offline.map(o => `${o.name} (${o.since_seconds}s)`).join(' + ');
+      document.getElementById('alarm-title').textContent = `YAYIN OFFLINE: ${list}`;
+      document.getElementById('alarm-detail').textContent =
+        "MediaMTX tee bağlantısı koptu. systemctl restart mediamtx ile manuel müdahale veya 🔍 düğmesi ile tanı çalıştır.";
+    } else {
+      bar.classList.remove('show');
+    }
+  } catch (e) {}
+}
+setInterval(updateAlarm, 3000);
+updateAlarm();
+
+// ─── Help + Diagnose modallari ────────────────────────────────────────────
+function bindModal(btnId, modalId, closeId) {
+  const btn = document.getElementById(btnId);
+  const modal = document.getElementById(modalId);
+  const close = document.getElementById(closeId);
+  if (!btn || !modal) return;
+  btn.addEventListener('click', () => modal.classList.add('open'));
+  if (close) close.addEventListener('click', () => modal.classList.remove('open'));
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+}
+bindModal('fab-help', 'modal-help', 'close-help');
+bindModal('fab-diag', 'modal-diag', 'close-diag');
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+async function runDiagnose() {
+  const modal = document.getElementById('modal-diag');
+  const body = document.getElementById('diag-body');
+  const ts = document.getElementById('diag-ts');
+  const btn = document.getElementById('fab-diag');
+  modal.classList.add('open');
+  btn.classList.add('loading');
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b">Tanı çalışıyor... 5-15s sürebilir</div>';
+  ts.textContent = '—';
+  try {
+    const r = await fetch('/api/diagnose');
+    const d = await r.json();
+    ts.textContent = `Tamamlandı: ${d.ts} • ${d.issue_count} sorun`;
+    if (d.issue_count === 0) {
+      body.innerHTML = '<div class=diag-ok>✓ TÜM SİSTEM SAĞLIKLI<br><span style="font-size:11px;font-weight:400;color:#64748b">10 bölüm kontrol edildi, hata yok</span></div>';
+    } else {
+      let html = '';
+      for (const i of d.issues) {
+        html += `<div class=diag-row><div class=diag-sec>${i.section}</div><div class=diag-msg>${i.issue}</div></div>`;
+      }
+      body.innerHTML = html;
+    }
+  } catch (e) {
+    body.innerHTML = `<div class=diag-ok style="background:rgba(239,68,68,.1);color:#ef4444">Tanı başarısız: ${e}</div>`;
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+document.getElementById('fab-diag').addEventListener('click', runDiagnose);
+
 refresh();
 setInterval(refresh, 3000);
 window.addEventListener('resize', () => {
@@ -1708,6 +1952,38 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/status":
             body = json.dumps(_state.snapshot()).encode()
             self._respond(200, "application/json", body)
+        elif self.path == "/api/diagnose":
+            # diagnose.py'i JSON modunda subprocess olarak çalıştır
+            try:
+                import sys as _sys
+                r = subprocess.run(
+                    [_sys.executable, "/opt/KameraShorts/diagnose.py", "--json"],
+                    capture_output=True, timeout=30,
+                    cwd="/opt/KameraShorts",
+                )
+                out = r.stdout.decode("utf-8", errors="replace")
+                try:
+                    diag = json.loads(out.strip())
+                except Exception:
+                    diag = {"error": "diagnose parse failed",
+                            "raw": out[-1000:]}
+                issues = []
+                for sect, info in diag.items():
+                    if isinstance(info, dict):
+                        for i in info.get("issues", []):
+                            issues.append({"section": sect, "issue": i})
+                payload = {
+                    "ts": time.strftime("%H:%M:%S"),
+                    "issue_count": len(issues),
+                    "issues": issues,
+                    "sections": diag,
+                    "ok": r.returncode == 0,
+                }
+                self._respond(200, "application/json",
+                              json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+            except Exception as e:
+                self._respond(500, "application/json",
+                              json.dumps({"error": str(e)}).encode())
         elif self.path in ("/", "/index.html"):
             self._respond(200, "text/html; charset=utf-8", HTML.encode())
         else:
@@ -1767,6 +2043,10 @@ def _poll_loop(interval: float = 3.0):
                 _state.sample_harvester()
             except Exception as e:
                 print(f"[poll] Harvester hata: {e}")
+            try:
+                _state.sample_tcp()
+            except Exception as e:
+                print(f"[poll] TCP hata: {e}")
         counter += 1
         time.sleep(interval)
 

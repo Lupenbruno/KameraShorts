@@ -42,10 +42,35 @@ from src.audio_mixer import AudioMixer
 from src.notifier import TelegramNotifier
 from src.weather import get_weather
 from src.youtube_uploader import YouTubeUploader
-from src.ai_filter import analyze_clip
 # Ankara için "eski usul" direct EGO HLS kayıt
 from src.camera_registry import CameraRegistry
 from src.clip_recorder import ClipRecorder
+
+
+def analyze_clip(clip_path: str, ffmpeg_path: str,
+                 duration: int = 40) -> tuple[int, int, str]:
+    """YOLO subprocess wrapper — Lazy load, RAM tasarrufu.
+
+    Harvester daemon YOLO modelini RAM'de tutmaz (~700 MB tasarruf).
+    Subprocess: ~8s overhead, ~400 MB peak (sonra serbest)."""
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "src.yolo_runner", "analyze",
+             "--clip", clip_path, "--ffmpeg", ffmpeg_path,
+             "--duration", str(duration)],
+            capture_output=True, timeout=120, check=False,
+        )
+        out = r.stdout.decode("utf-8", errors="replace")
+        for line in out.splitlines():
+            if line.startswith("RESULT:"):
+                d = json.loads(line[7:])
+                return (int(d.get("score", 0)),
+                        int(d.get("threshold", 4)),
+                        d.get("thumb", ""))
+    except Exception as e:
+        logging.getLogger("harvester").warning(f"YOLO subprocess hata: {e}")
+    # Hata durumunda gec (model yoksa gibi davran)
+    return 99, 4, ""
 
 # ─── Sabitler ───────────────────────────────────────────────────────────────
 

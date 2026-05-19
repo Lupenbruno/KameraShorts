@@ -10,7 +10,49 @@ import time
 import requests
 from datetime import datetime
 from pathlib import Path
-from src.ai_filter import quick_check, analyze_clip
+import json as _json
+# Lazy YOLO subprocess wrappers — RAM tasarrufu
+
+
+def quick_check(stream_url: str, ffmpeg_path: str) -> bool:
+    """YOLO subprocess on-kontrol (1 kare). Hata olursa True (gec)."""
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "src.yolo_runner", "quickcheck",
+             "--url", stream_url, "--ffmpeg", ffmpeg_path],
+            capture_output=True, timeout=30, check=False,
+        )
+        out = r.stdout.decode("utf-8", errors="replace")
+        for line in out.splitlines():
+            if line.startswith("RESULT:"):
+                d = _json.loads(line[7:])
+                return bool(d.get("passed", True))
+    except Exception:
+        pass
+    return True
+
+
+def analyze_clip(clip_path: str, ffmpeg_path: str,
+                 duration: int = 40) -> tuple[int, int, str]:
+    """YOLO subprocess klip analizi (skor + threshold + thumb)."""
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "src.yolo_runner", "analyze",
+             "--clip", clip_path, "--ffmpeg", ffmpeg_path,
+             "--duration", str(duration)],
+            capture_output=True, timeout=120, check=False,
+        )
+        out = r.stdout.decode("utf-8", errors="replace")
+        for line in out.splitlines():
+            if line.startswith("RESULT:"):
+                d = _json.loads(line[7:])
+                return (int(d.get("score", 0)),
+                        int(d.get("threshold", 4)),
+                        d.get("thumb", ""))
+    except Exception:
+        pass
+    return 99, 4, ""
+
 
 log = logging.getLogger("kamerashorts")
 
