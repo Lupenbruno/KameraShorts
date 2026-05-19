@@ -1,0 +1,123 @@
+# KameraShorts v5 — paylaşımlı config
+# Sırlar /etc/kamerashorts/secrets.env içinde, burada ${VAR} ile gömülür.
+
+ffmpeg_path: /usr/bin/ffmpeg
+font_path: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+# ─── INGEST — HLS dl + segment yaz ────────────────────────────────────────
+ingest:
+  segment_seconds: 6           # her segment ~6s, mpegts
+  max_segments_per_city: 100   # halka tamponu (~10dk içerik)
+  ttl_seconds: 1800            # 30dk sonra cleanup
+  retry_backoff: [2, 5, 10, 20, 30]   # bağlantı kopuşunda
+  cameras:
+    ankara:
+      type: ankara_api
+      status_url: https://seyret.ankara.bel.tr/status.json
+      relay_start_url: https://seyret.ankara.bel.tr/api/relay/start/{dvr}?provider={provider}
+      relay_renew_seconds: 33
+      ssl_verify: false
+      # ingest periyodik olarak yeni bir otobüs seçer (rotation)
+      rotation_minutes: 5
+    istanbul:
+      type: istanbul_api
+      base_url: https://livestream.ibb.gov.tr/cam_turistik/{slug}.stream/playlist.m3u8
+      rotation_minutes: 5
+      ssl_verify: false
+      cameras:
+        - {name: Sultanahmet 1, slug: b_sultanahmet}
+        - {name: Sultanahmet 2, slug: b_sultanahmet2}
+        - {name: Salacak, slug: b_salacak}
+        - {name: Kapalı Çarşı, slug: b_kapalicarsi}
+        - {name: Kadıköy, slug: b_kadikoy}
+        - {name: Taksim Meydanı, slug: b_taksim_meydan}
+        - {name: Üsküdar, slug: b_uskudar}
+        - {name: Kız Kulesi, slug: new_Kızkulesi}
+        - {name: Eyüp Sultan, slug: b_eyupsultan}
+        - {name: Hidiv Kasrı, slug: b_hidivkasri}
+        - {name: Metrohan, slug: b_metrohan}
+        - {name: Saraçhane, slug: b_sarachane}
+        - {name: Pierre Lotti, slug: b_pierreloti}
+        - {name: Beyazıt Meydanı, slug: b_beyazitmeydani}
+        - {name: Büyük Çamlıca, slug: b_buyukcamlıca}
+    corum:
+      type: direct_random
+      rotation_minutes: 5
+      ssl_verify: false
+      streams:
+        - https://mobilharita.corum.bel.tr/live/kentmeydani.stream/playlist.m3u8
+        - https://mobilharita.corum.bel.tr/live/milletbahcesi.stream/playlist.m3u8
+        - https://mobilharita.corum.bel.tr/live/gazicaddesi.stream/playlist.m3u8
+        - https://mobilharita.corum.bel.tr/live/tarihi-meydan.stream/playlist.m3u8
+        - https://mobilharita.corum.bel.tr/live/aksemseddincami.stream/playlist.m3u8
+    konya:
+      type: direct_random
+      rotation_minutes: 5
+      ssl_verify: false
+      streams:
+        - https://konya-streaming.s3.de.io.cloud.ovh.net/streams/mevlana_meydani.m3u8
+        - https://konya-streaming.s3.de.io.cloud.ovh.net/streams/serafettin_camii.m3u8
+        - https://konya-streaming.s3.de.io.cloud.ovh.net/streams/alaeddin_camii.m3u8
+        - https://konya-streaming.s3.de.io.cloud.ovh.net/streams/turbe_onu.m3u8
+
+# ─── MIXER — segment'leri tek RTMP'ye akıt ─────────────────────────────────
+mixer:
+  output_rtmp: rtmp://127.0.0.1:1935/live/stream-v5    # paralel test için
+  width: 1280
+  height: 720
+  fps: 20
+  video_bitrate_k: 2500
+  audio_bitrate_k: 128
+  city_duration_seconds: 240   # her şehir 4dk yayında
+  city_order: [ankara, istanbul, corum, konya]
+  music_playlist: /opt/KameraShorts/music/playlist.txt
+  music_volume: 0.4
+  weather_overlay: true
+
+# ─── SHORTS — Ankara saatlik upload ────────────────────────────────────────
+shorts:
+  minute_of_hour: 15           # her saat :15
+  city: ankara                 # şu an sadece Ankara aktif
+  clip_seconds: 40
+  min_brightness: 50
+  min_motion: 5
+  yolo_min_score: 4
+  yolo_max_tries: 10
+  dedup_hours: 24
+  output_dim: [1080, 1920]      # dikey canvas
+  encoder_preset: fast
+  encoder_crf: 23
+
+# ─── WEATHER ───────────────────────────────────────────────────────────────
+weather:
+  api_key: ${OWM_API_KEY}
+  cache_seconds: 1800
+  cities:
+    ankara: Ankara,TR
+    istanbul: Istanbul,TR
+    corum: Corum,TR
+    konya: Konya,TR
+
+# ─── TELEGRAM ──────────────────────────────────────────────────────────────
+telegram:
+  bot_token: ${TELEGRAM_BOT_TOKEN}
+  chat_id: ${TELEGRAM_CHAT_ID}
+
+# ─── YOUTUBE / KICK (sadece referans; gerçek key secrets.env'de) ───────────
+youtube:
+  category_id: '22'
+  default_privacy: public
+  client_secret_path: /opt/KameraShorts/credentials/client_secret.json
+  token_path: /opt/KameraShorts/credentials/token.json
+  daily_quota_per_city: 6
+  playlists:
+    ankara: PLONbha2ewi1T8cReTGdqWHIVciq5j0biA
+    istanbul: PLONbha2ewi1QYupl2gA6v3Soz_jKbZk8w
+    corum: PLONbha2ewi1SoNeZ-1pPXLMdHTnf7bkaL
+    konya: PLONbha2ewi1Rofca5JotriW8yrSWy-3jE
+
+# ─── CLEANER ──────────────────────────────────────────────────────────────
+cleaner:
+  interval_seconds: 300
+  segment_ttl_seconds: 1800
+  log_retention_days: 7
