@@ -1296,6 +1296,27 @@ class StreamManager:
             ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
         )
 
+        # v4.5 — Anik mesaj overlay: drawtext + textfile + reload=1
+        # /var/lib/kamerashorts/stream_message.txt dosyasini her frame okur.
+        # Dosya bos ise drawtext gorunmez (text="" hide). Dolu ise alt-orta'da
+        # kirmizi banner gorunur. Dashboard /api/stream-message POST eder.
+        msg_file = "/var/lib/kamerashorts/stream_message.txt"
+        from os.path import exists as _exists, dirname as _dirname
+        from os import makedirs as _makedirs
+        _makedirs(_dirname(msg_file), exist_ok=True)
+        if not _exists(msg_file):
+            with open(msg_file, "w", encoding="utf-8") as _f:
+                _f.write("")
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        msg_vf = (
+            f"drawtext=fontfile={font_path}:"
+            f"textfile={msg_file}:reload=1:"
+            f"x=(w-text_w)/2:y=h-180:"
+            f"fontsize=44:fontcolor=white:"
+            f"box=1:boxcolor=red@0.85:boxborderw=14:"
+            f"shadowx=2:shadowy=2:shadowcolor=black@0.8"
+        )
+
         return [
             "nice", "-n", "-5",
             self._ffmpeg, "-hide_banner",
@@ -1309,6 +1330,7 @@ class StreamManager:
             "-i", str(self._pipe_path),
         ] + audio_input + [
             "-map", "0:v:0", "-map", "1:a:0",
+            "-vf", msg_vf,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-b:v", f"{vbr}k", "-maxrate", f"{vbr}k", "-bufsize", f"{vbr*2}k",
             "-g", str(fps * 2),

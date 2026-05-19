@@ -1370,6 +1370,14 @@ button{font-family:inherit}
 .log-line .lvl.WARNING{color:var(--yellow)}
 .log-line .lvl.ERROR{color:var(--red)}
 
+/* ─── Stream mesaj radio button ─── */
+.sm-dur{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
+        background:var(--card2);border:1px solid var(--line);border-radius:5px;
+        font-size:11px;color:var(--text2);cursor:pointer;transition:.15s}
+.sm-dur:hover{background:#1f2937;border-color:var(--blue)}
+.sm-dur input{accent-color:var(--blue);cursor:pointer}
+.sm-dur:has(input:checked){background:rgba(59,130,246,.15);border-color:var(--blue);color:#fff}
+
 /* ─── CONTROL PANEL ─── */
 .controls{display:flex;flex-wrap:wrap;gap:8px}
 .ctrl-btn{padding:9px 16px;background:var(--card2);border:1px solid var(--line);
@@ -1710,6 +1718,37 @@ canvas.spark-canvas{width:100%;height:30px;display:block}
     <div class="card">
       <h2>📋 Canlı Loglar</h2>
       <div class="logs" id="logs"></div>
+    </div>
+  </div>
+
+  <!-- STREAM MESAJ PANELI -->
+  <div class="card" style="border-color:rgba(239,68,68,.3)">
+    <h2>📢 Stream'e Anık Mesaj <span class="badge pill info"><span class="d"></span>canlı yayına yazı gönder</span></h2>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:680px">
+      <textarea id="sm-text" maxlength="200" rows="2" placeholder="Mesajını yaz (max 200 karakter)..."
+        style="background:var(--card2);border:1px solid var(--line);color:var(--text);
+               padding:10px 12px;border-radius:6px;font-family:inherit;font-size:13px;
+               resize:vertical;line-height:1.4"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:11px;color:var(--muted)">Süre:</span>
+        <label class="sm-dur"><input type="radio" name="sm-dur" value="15"> 15s</label>
+        <label class="sm-dur"><input type="radio" name="sm-dur" value="30" checked> 30s</label>
+        <label class="sm-dur"><input type="radio" name="sm-dur" value="60"> 60s</label>
+        <label class="sm-dur"><input type="radio" name="sm-dur" value="0"> Kalıcı</label>
+        <span style="flex:1"></span>
+        <span style="font-size:10px;color:var(--muted)" id="sm-char">0/200</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="ctrl-btn" id="sm-send" style="background:#dc2626;border-color:#7f1d1d;color:#fff;font-weight:700">
+          📤 GÖNDER
+        </button>
+        <button class="ctrl-btn warn" id="sm-clear">🗑 Temizle (ekrandan kaldır)</button>
+        <span style="flex:1"></span>
+        <span id="sm-status" style="font-size:11px;color:var(--muted);align-self:center"></span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);padding:8px 12px;background:rgba(99,102,241,.08);border-radius:6px">
+        💡 İpucu: Mesaj YouTube + Kick yayınında ekranın alt-orta kısmında kırmızı banner ile 1-2 saniye gecikme ile görünür. Süre dolunca otomatik kaybolur.
+      </div>
     </div>
   </div>
 
@@ -2095,7 +2134,7 @@ refresh();
 setInterval(refresh, 2000);
 
 // ─── Control buttons ─────────────────────────────────
-document.querySelectorAll('.ctrl-btn').forEach(btn => {
+document.querySelectorAll('.ctrl-btn[data-action]').forEach(btn => {
   btn.addEventListener('click', async () => {
     const action = btn.dataset.action;
     if (!confirm(`Onayla: ${action}`)) return;
@@ -2113,6 +2152,59 @@ document.querySelectorAll('.ctrl-btn').forEach(btn => {
     finally { setTimeout(() => location.reload(), 800); }
   });
 });
+
+// ─── Stream Mesaj Paneli ──────────────────────────────
+const smText = $('sm-text');
+const smChar = $('sm-char');
+const smSend = $('sm-send');
+const smClear = $('sm-clear');
+const smStatus = $('sm-status');
+
+if (smText) {
+  smText.addEventListener('input', () => {
+    smChar.textContent = `${smText.value.length}/200`;
+  });
+}
+
+async function sendStreamMessage(message, duration) {
+  smStatus.textContent = '⏳ gönderiliyor...';
+  smStatus.style.color = 'var(--muted)';
+  try {
+    const r = await fetch('/api/stream-message', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message, duration}),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      if (message) {
+        smStatus.innerHTML = `<span style="color:var(--green)">✓ Yayında: "${j.message.substring(0,40)}"${duration?` (${duration}s)`:' (kalıcı)'}</span>`;
+      } else {
+        smStatus.innerHTML = `<span style="color:var(--yellow)">🗑 Ekrandan kaldırıldı</span>`;
+      }
+    } else {
+      smStatus.innerHTML = `<span style="color:var(--red)">✗ Hata: ${j.error||''}</span>`;
+    }
+  } catch (e) {
+    smStatus.innerHTML = `<span style="color:var(--red)">✗ Bağlantı hatası</span>`;
+  }
+}
+
+if (smSend) {
+  smSend.addEventListener('click', () => {
+    const msg = smText.value.trim();
+    if (!msg) { alert('Mesaj boş!'); return; }
+    const dur = parseInt(document.querySelector('input[name="sm-dur"]:checked').value);
+    sendStreamMessage(msg, dur);
+  });
+}
+if (smClear) {
+  smClear.addEventListener('click', () => {
+    smText.value = '';
+    smChar.textContent = '0/200';
+    sendStreamMessage('', 0);  // boş mesaj = temizle
+  });
+}
 
 // ─── Modals ───────────────────────────────────────────
 function bindModal(btnId, modalId, closeId) {
@@ -2223,6 +2315,44 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError(f"Geçersiz action: {action}")
                 subprocess.run(cmds[action], timeout=15, check=True)
                 resp = json.dumps({"ok": True}).encode()
+                self._respond(200, "application/json", resp)
+            except Exception as e:
+                resp = json.dumps({"ok": False, "error": str(e)}).encode()
+                self._respond(500, "application/json", resp)
+        elif self.path == "/api/stream-message":
+            # Anık mesaj: dashboard'dan yazı → stream FFmpeg drawtext'e
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                msg = data.get("message", "")[:200]
+                duration = int(data.get("duration", 30))
+                msg_file = "/var/lib/kamerashorts/stream_message.txt"
+                # FFmpeg drawtext özel karakter escape (single quote, colon, backslash)
+                escaped = (msg.replace("\\", "\\\\")
+                              .replace("'", "’")  # tek tirnak → düz tek tırnak
+                              .replace(":", " "))      # : drawtext separator
+                # Atomic write
+                from pathlib import Path as _P
+                _P(msg_file).parent.mkdir(parents=True, exist_ok=True)
+                tmp = msg_file + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    f.write(escaped)
+                import os as _os
+                _os.replace(tmp, msg_file)
+                # Süre bitince temizle (timer)
+                if duration > 0 and msg:
+                    def _clear():
+                        try:
+                            with open(msg_file, "w", encoding="utf-8") as f:
+                                f.write("")
+                        except Exception:
+                            pass
+                    threading.Timer(duration, _clear).start()
+                resp = json.dumps({
+                    "ok": True, "message": msg,
+                    "duration": duration if msg else 0,
+                }).encode()
                 self._respond(200, "application/json", resp)
             except Exception as e:
                 resp = json.dumps({"ok": False, "error": str(e)}).encode()
