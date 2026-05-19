@@ -112,6 +112,25 @@ class StreamState:
         self._cpu_history: deque = deque(maxlen=120)  # 6 dakika
         self._ram_history: deque = deque(maxlen=120)
 
+        # ── Harvester pipeline detaylı state ──────────────────────────────
+        self._harvester_pipeline: dict = {
+            "phase": "idle",            # idle / running / finished
+            "slot_start": "",
+            "elapsed_s": 0,
+            "current_attempt": 0,
+            "total_candidates": 0,
+            "current_plate": "",
+            "current_vtype": "",
+            "current_speed": 0,
+            "current_action": "—",      # tek satır insan-okur
+            "current_action_stage": "", # kayit / yolo / audio / upload
+            "attempts_history": [],     # [{n, plate, vtype, result}]
+            "weather": "",
+            "youtube_url": "",
+            "last_result": "",          # success / fail
+            "last_finish": "",
+        }
+
     def poll(self):
         path = Path(self.log_path)
         if not path.exists():
@@ -634,6 +653,7 @@ class StreamState:
                 "next_shorts_time": self._next_shorts_time,
                 "cpu_history": list(self._cpu_history),
                 "ram_history": list(self._ram_history),
+                "harvester_pipeline": self._harvester_pipeline,
             }
 
     def sample_resources(self):
@@ -798,6 +818,236 @@ class StreamState:
                 self._next_shorts_time = next_dt.strftime("%H:%M")
         except Exception as e:
             print(f"[next_shorts] Hata: {e}")
+
+    def sample_harvester_pipeline(self):
+        """harvester.log'u parse et — son slot detaylı state.
+
+        Aşama akışı:
+          slot başladı → hava → EGO N araç → 1/N aday seçildi →
+          relay aktif → ÖN YOLO → kayıt tamamlandı → ses karıştırıldı →
+          YouTube auth → yüklendi → thumbnail → playlist → plaka kayıt →
+          slot bitti
+        """
+        try:
+            log_path = Path("/opt/KameraShorts/logs/harvester.log")
+            if not log_path.exists():
+                return
+            with open(log_path, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - 40000))
+                tail = f.read().decode("utf-8", errors="replace")
+
+            lines = tail.splitlines()
+            # Son "slot başladı" satırını bul
+            slot_start_idx = -1
+            for i in range(len(lines) - 1, -1, -1):
+                if "Ankara Shorts slot başladı" in lines[i]:
+                    slot_start_idx = i
+                    break
+
+            pipe = {
+                "phase": "idle",
+                "slot_start": "",
+                "elapsed_s": 0,
+                "current_attempt": 0,
+                "total_candidates": 0,
+                "current_plate": "",
+                "current_vtype": "",
+                "current_speed": 0,
+                "current_action": "Sonraki saati bekliyor",
+                "current_action_stage": "",
+                "attempts_history": [],
+                "weather": "",
+                "youtube_url": "",
+                "last_result": "",
+                "last_finish": "",
+            }
+
+            if slot_start_idx < 0:
+                with self._lock:
+                    self._harvester_pipeline = pipe
+                return
+
+            slot_lines = lines[slot_start_idx:]
+            import re as _re
+            from datetime import datetime as _dt
+
+            ts_re = _re.compile(r'^(\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}))')
+            start_re = _re.compile(r'Ankara Shorts slot başladı (\d{2}:\d{2})')
+            weather_re = _re.compile(r'Hava: (.+)')
+            ego_re = _re.compile(r"EGO'dan (\d+) aktif araç alındı")
+            ego_old_re = _re.compile(r"EGO'dan (\d+) araç alındı")
+            attempt_re = _re.compile(
+                r"(\d+)/(\d+) → '([^']+)' \(tip: ([^,]+), hız: (\d+) km/h\)"
+            )
+            yolo_fail_re = _re.compile(r"\[(\S+)\] Ön YOLO: zemin/damper/karanlık")
+            timeout_re = _re.compile(r"\[(\S+)\] Timeout")
+            kayit_err_re = _re.compile(r"kayıt hata:")
+            clip_ready_re = _re.compile(r"✓ (.+) klip hazır: (.+)")
+            title_re = _re.compile(r"Başlık: (.+)")
+            audio_re = _re.compile(r"Ses karıştırıldı")
+            yt_auth_re = _re.compile(r"YouTube kimlik doğrulama")
+            yt_upload_re = _re.compile(r"YouTube'a yuklendi: (\S+)")
+            yt_thumb_re = _re.compile(r"Thumbnail yuklendi")
+            yt_playlist_re = _re.compile(r"Playlist'e eklendi")
+            yt_success_re = _re.compile(r"✓ Yüklendi: (\S+)")
+            slot_done_re = _re.compile(r"slot bitti")
+            slot_fail_re = _re.compile(
+                r"Üretim başarısız → slot atlanıyor|aday tükendi"
+            )
+
+            last_ts = ""
+            current_plate_raw = ""
+            current_stage = "Başlıyor"
+
+            for ln in slot_lines:
+                tm = ts_re.match(ln)
+                if tm:
+                    last_ts = tm.group(2)
+                m = start_re.search(ln)
+                if m:
+                    pipe["slot_start"] = m.group(1)
+                    pipe["phase"] = "running"
+                    pipe["current_action"] = "Slot başladı"
+                    current_stage = "init"
+                    continue
+                m = weather_re.search(ln)
+                if m:
+                    pipe["weather"] = m.group(1).strip()[:40]
+                    continue
+                m = ego_re.search(ln) or ego_old_re.search(ln)
+                if m:
+                    pipe["total_candidates"] = int(m.group(1))
+                    pipe["current_action"] = f"{m.group(1)} aday hazır, seçim yapılıyor"
+                    current_stage = "selection"
+                    continue
+                m = attempt_re.search(ln)
+                if m:
+                    # Önceki aday varsa history'e ekle
+                    if pipe["current_plate"]:
+                        pipe["attempts_history"].append({
+                            "n": pipe["current_attempt"],
+                            "plate": pipe["current_plate"],
+                            "vtype": pipe["current_vtype"],
+                            "result": current_stage,
+                        })
+                    pipe["current_attempt"] = int(m.group(1))
+                    # total_candidates eğer henüz set edilmediyse attempt'tan al
+                    if not pipe["total_candidates"]:
+                        pipe["total_candidates"] = int(m.group(2))
+                    pipe["current_plate"] = m.group(3).strip()
+                    current_plate_raw = pipe["current_plate"].replace(" ", "_")
+                    pipe["current_vtype"] = m.group(4).strip()
+                    try:
+                        pipe["current_speed"] = int(m.group(5))
+                    except Exception:
+                        pipe["current_speed"] = 0
+                    pipe["current_action"] = f"Aday {pipe['current_attempt']}/{pipe['total_candidates']}: {pipe['current_plate']} seçildi"
+                    pipe["current_action_stage"] = "selected"
+                    current_stage = "selected"
+                    continue
+                if "Relay renewal aktif" in ln:
+                    pipe["current_action"] = f"HLS kayıt + relay TTL yenileme ({pipe['current_plate']})"
+                    pipe["current_action_stage"] = "kayit"
+                    current_stage = "kayit"
+                    continue
+                m = yolo_fail_re.search(ln)
+                if m:
+                    current_stage = "yolo_fail"
+                    pipe["current_action"] = f"Aday {pipe['current_attempt']} YOLO eledi (zemin/karanlık), sonraki"
+                    pipe["current_action_stage"] = "yolo_fail"
+                    continue
+                m = timeout_re.search(ln)
+                if m:
+                    current_stage = "timeout"
+                    pipe["current_action"] = f"Aday {pipe['current_attempt']} timeout, sonraki"
+                    pipe["current_action_stage"] = "timeout"
+                    continue
+                m = clip_ready_re.search(ln)
+                if m:
+                    current_stage = "yolo_pass"
+                    pipe["current_action"] = f"✓ {pipe['current_plate']} YOLO geçti, klip hazır"
+                    pipe["current_action_stage"] = "yolo_pass"
+                    continue
+                if audio_re.search(ln):
+                    current_stage = "audio_done"
+                    pipe["current_action"] = "Ses karıştırma tamamlandı (TTS + ambient)"
+                    pipe["current_action_stage"] = "audio"
+                    continue
+                if yt_auth_re.search(ln):
+                    current_stage = "yt_auth"
+                    pipe["current_action"] = "YouTube auth"
+                    pipe["current_action_stage"] = "upload"
+                    continue
+                m = yt_upload_re.search(ln)
+                if m:
+                    pipe["youtube_url"] = m.group(1).strip()
+                    current_stage = "yt_uploaded"
+                    pipe["current_action"] = "YouTube'a yüklendi (thumbnail bekliyor)"
+                    pipe["current_action_stage"] = "upload"
+                    continue
+                if yt_thumb_re.search(ln):
+                    pipe["current_action"] = "Thumbnail yüklendi (playlist bekliyor)"
+                    pipe["current_action_stage"] = "upload"
+                    continue
+                if yt_playlist_re.search(ln):
+                    pipe["current_action"] = "Playlist'e eklendi (✓ tamamlanıyor)"
+                    pipe["current_action_stage"] = "upload"
+                    continue
+                m = yt_success_re.search(ln)
+                if m:
+                    pipe["youtube_url"] = m.group(1).strip()
+                    pipe["last_result"] = "success"
+                    pipe["current_action"] = "✓ BAŞARILI: YouTube'da yayında"
+                    pipe["current_action_stage"] = "success"
+                    current_stage = "success"
+                    continue
+                if slot_done_re.search(ln):
+                    pipe["phase"] = "finished"
+                    pipe["last_finish"] = last_ts
+                    if pipe["last_result"] != "success":
+                        pipe["current_action"] = "Slot bitti (sonuç: yok)"
+                    else:
+                        pipe["current_action"] = f"Slot tamamlandı ({pipe['slot_start']})"
+                    continue
+                if slot_fail_re.search(ln):
+                    pipe["phase"] = "finished"
+                    pipe["last_result"] = "fail"
+                    pipe["current_action"] = "Tüm adaylar başarısız, slot atlandı"
+                    pipe["current_action_stage"] = "fail"
+                    continue
+
+            # Son denemeyi history'e ekle (eğer bitmemişse current olarak kal)
+            if pipe["phase"] == "finished" and pipe["current_plate"]:
+                pipe["attempts_history"].append({
+                    "n": pipe["current_attempt"],
+                    "plate": pipe["current_plate"],
+                    "vtype": pipe["current_vtype"],
+                    "result": current_stage,
+                })
+
+            # Elapsed hesap
+            if pipe["slot_start"]:
+                try:
+                    now = _dt.now()
+                    h, m = pipe["slot_start"].split(":")
+                    start_dt = now.replace(hour=int(h), minute=int(m),
+                                            second=0, microsecond=0)
+                    if start_dt > now:  # ertesi gün durumu
+                        from datetime import timedelta as _td
+                        start_dt -= _td(days=1)
+                    pipe["elapsed_s"] = int((now - start_dt).total_seconds())
+                except Exception:
+                    pass
+
+            # En son 5 attempt history'i tut
+            pipe["attempts_history"] = pipe["attempts_history"][-8:]
+
+            with self._lock:
+                self._harvester_pipeline = pipe
+        except Exception as e:
+            print(f"[harv_pipe] Hata: {e}")
 
     def sample_cpu_ram_history(self):
         """Son resources okumadan grafikler için zaman serisi tut."""
@@ -1178,6 +1428,45 @@ button{font-family:inherit}
 /* ─── SPARK CANVAS ─── */
 canvas.spark-canvas{width:100%;height:30px;display:block}
 
+/* ─── ANKARA PIPELINE (Shorts üretim aşaması) ─── */
+.ap-card{background:linear-gradient(135deg,#312e81 0%,#0a0f1c 100%);
+         border:1px solid #4338ca;position:relative;overflow:hidden}
+.ap-card::before{content:"";position:absolute;top:-30%;right:-15%;width:280px;height:280px;
+                 border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.2),transparent 70%);pointer-events:none}
+.ap-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;
+        position:relative;z-index:1}
+.ap-current{flex:1;min-width:240px}
+.ap-action{font-size:15px;font-weight:600;color:#fff;margin-bottom:8px;line-height:1.4}
+.ap-meta{display:flex;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.ap-meta > span{padding:4px 10px;background:rgba(255,255,255,.06);border-radius:4px;font-family:monospace}
+.ap-meta .ap-attempt-tag{color:#a5b4fc;font-weight:600}
+.ap-meta .ap-plate-tag{color:#fbbf24}
+.ap-stages{display:flex;gap:6px;flex-wrap:wrap}
+.ap-stage{display:flex;flex-direction:column;align-items:center;padding:8px 12px;
+          background:rgba(255,255,255,.04);border-radius:6px;opacity:.35;transition:.3s;
+          min-width:62px;border:1px solid transparent}
+.ap-stage.active{opacity:1;background:rgba(99,102,241,.25);border-color:var(--indigo);
+                 box-shadow:0 0 12px rgba(99,102,241,.4);animation:stage-glow 2s infinite}
+.ap-stage.done{opacity:.85;background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.4)}
+.ap-stage.fail{opacity:.85;background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4)}
+@keyframes stage-glow{50%{box-shadow:0 0 22px rgba(99,102,241,.65)}}
+.ap-stage .ap-icon{font-size:18px;margin-bottom:2px}
+.ap-stage .ap-lbl{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em}
+.ap-attempts{margin-top:12px;position:relative;z-index:1}
+.ap-attempt-list{max-height:220px;overflow-y:auto}
+.ap-attempt-row{display:flex;align-items:center;gap:10px;padding:6px 10px;
+                background:rgba(255,255,255,.04);border-radius:5px;margin-bottom:3px;font-size:11px}
+.ap-attempt-row .n{color:#a5b4fc;font-weight:700;width:48px;flex-shrink:0;font-family:monospace}
+.ap-attempt-row .p{color:#fbbf24;font-family:monospace;flex-shrink:0;width:90px}
+.ap-attempt-row .t{flex:1;color:var(--muted);font-size:10px;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ap-attempt-row .r{padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;flex-shrink:0}
+.ap-attempt-row .r.ok{background:rgba(34,197,94,.2);color:var(--green)}
+.ap-attempt-row .r.warn{background:rgba(245,158,11,.2);color:var(--yellow)}
+.ap-attempt-row .r.bad{background:rgba(239,68,68,.2);color:var(--red)}
+.ap-attempt-row .r.info{background:rgba(99,102,241,.2);color:#a5b4fc}
+.ap-progress-wrap{margin-top:14px;position:relative;z-index:1}
+
 .section-title{font-size:11px;font-weight:700;letter-spacing:0.12em;color:var(--muted);
                text-transform:uppercase;margin-bottom:10px;margin-top:4px}
 
@@ -1331,6 +1620,41 @@ canvas.spark-canvas{width:100%;height:30px;display:block}
   <div class="card">
     <h2>🌆 4 Şehir Batch İlerlemesi <span class="badge pill info"><span class="d"></span>aktif</span></h2>
     <div id="cities"></div>
+  </div>
+
+  <!-- ANKARA PIPELINE (Shorts üretim aşaması) -->
+  <div class="card ap-card">
+    <h2>🚌 Ankara Shorts Pipeline <span class="badge pill muted" id="ap-phase"><span class="d"></span>—</span></h2>
+    <div class="ap-row">
+      <div class="ap-current">
+        <div class="ap-action" id="ap-action">Sonraki saati bekliyor</div>
+        <div class="ap-meta">
+          <span class="ap-attempt-tag" id="ap-attempt">—/—</span>
+          <span class="ap-plate-tag" id="ap-plate">—</span>
+          <span id="ap-vtype">—</span>
+          <span id="ap-weather">—</span>
+        </div>
+      </div>
+      <div class="ap-stages">
+        <div class="ap-stage" data-stage="select"><span class="ap-icon">🔍</span><span class="ap-lbl">Seçim</span></div>
+        <div class="ap-stage" data-stage="kayit"><span class="ap-icon">📹</span><span class="ap-lbl">Kayıt</span></div>
+        <div class="ap-stage" data-stage="yolo"><span class="ap-icon">🧠</span><span class="ap-lbl">YOLO</span></div>
+        <div class="ap-stage" data-stage="audio"><span class="ap-icon">🎵</span><span class="ap-lbl">Ses</span></div>
+        <div class="ap-stage" data-stage="upload"><span class="ap-icon">📤</span><span class="ap-lbl">Upload</span></div>
+        <div class="ap-stage" data-stage="success"><span class="ap-icon">✓</span><span class="ap-lbl">OK</span></div>
+      </div>
+    </div>
+    <div class="ap-progress-wrap">
+      <div class="progress"><div class="progress-fill" id="ap-prog-fill" style="width:0%"></div></div>
+      <div class="progress-meta">
+        <span id="ap-elapsed">slot bekliyor</span>
+        <span id="ap-slot-start">—</span>
+      </div>
+    </div>
+    <div class="ap-attempts">
+      <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Bu slotta denemeler</div>
+      <div class="ap-attempt-list" id="ap-attempt-list"></div>
+    </div>
   </div>
 
   <!-- RESOURCES (3 kolon, sparkline ile) -->
@@ -1600,6 +1924,95 @@ async function refresh(){
   }
   $('cities').innerHTML = chtml || '<div class=empty>henüz batch oluşturulmadı</div>';
 
+  // ── ANKARA PIPELINE ──────────────────────────────────────
+  const hp = d.harvester_pipeline || {};
+  const phaseTag = $('ap-phase');
+  let phaseClass = 'muted', phaseTxt = hp.phase || '—';
+  if (hp.phase === 'running') { phaseClass = 'info'; phaseTxt = '▶ aktif'; }
+  else if (hp.phase === 'finished' && hp.last_result === 'success') { phaseClass = 'ok'; phaseTxt = '✓ tamamlandı'; }
+  else if (hp.phase === 'finished' && hp.last_result === 'fail') { phaseClass = 'bad'; phaseTxt = '✗ başarısız'; }
+  else if (hp.phase === 'finished') { phaseClass = 'warn'; phaseTxt = 'bitti'; }
+  else if (hp.phase === 'idle') { phaseClass = 'muted'; phaseTxt = 'bekliyor'; }
+  phaseTag.className = 'badge pill ' + phaseClass;
+  phaseTag.innerHTML = `<span class="d"></span>${phaseTxt}`;
+
+  $('ap-action').textContent = hp.current_action || '—';
+  $('ap-attempt').textContent = `${hp.current_attempt || 0}/${hp.total_candidates || 0}`;
+  $('ap-plate').textContent = hp.current_plate || '—';
+  $('ap-vtype').textContent = hp.current_vtype
+    ? `${hp.current_vtype} ${hp.current_speed||0}km/h` : '—';
+  $('ap-weather').textContent = hp.weather || '—';
+
+  // Aşamalar (stages)
+  const stageOrder = ['select', 'kayit', 'yolo', 'audio', 'upload', 'success'];
+  const stageMap = {
+    'init': 'select', 'selection': 'select', 'selected': 'select',
+    'kayit': 'kayit', 'timeout': 'kayit',
+    'yolo_fail': 'yolo', 'yolo_pass': 'yolo',
+    'audio': 'audio', 'audio_done': 'audio',
+    'upload': 'upload', 'yt_auth': 'upload', 'yt_uploaded': 'upload',
+    'success': 'success', 'fail': null,
+  };
+  const stageNow = stageMap[hp.current_action_stage] || null;
+  const stageIdx = stageOrder.indexOf(stageNow);
+  const isFailStage = hp.current_action_stage === 'yolo_fail' ||
+                      hp.current_action_stage === 'timeout' ||
+                      hp.current_action_stage === 'fail';
+
+  document.querySelectorAll('.ap-stage').forEach(el => {
+    el.classList.remove('active', 'done', 'fail');
+  });
+
+  if (hp.current_action_stage === 'success' || hp.last_result === 'success') {
+    // Tüm aşamalar done
+    document.querySelectorAll('.ap-stage').forEach(el => el.classList.add('done'));
+  } else if (isFailStage && stageIdx >= 0) {
+    // Önceki aşamalar done, bu aşama fail
+    stageOrder.forEach((s, i) => {
+      const el = document.querySelector(`.ap-stage[data-stage="${s}"]`);
+      if (!el) return;
+      if (i < stageIdx) el.classList.add('done');
+      else if (i === stageIdx) el.classList.add('fail');
+    });
+  } else if (stageIdx >= 0) {
+    stageOrder.forEach((s, i) => {
+      const el = document.querySelector(`.ap-stage[data-stage="${s}"]`);
+      if (!el) return;
+      if (i < stageIdx) el.classList.add('done');
+      else if (i === stageIdx) el.classList.add('active');
+    });
+  }
+
+  // Progress + elapsed
+  const apProg = hp.total_candidates
+    ? Math.min(100, Math.round((hp.current_attempt / hp.total_candidates) * 100))
+    : 0;
+  $('ap-prog-fill').style.width = apProg + '%';
+  $('ap-elapsed').textContent = hp.elapsed_s
+    ? `${ageStr(hp.elapsed_s)} geçti` : (hp.phase === 'idle' ? 'slot bekliyor' : '—');
+  $('ap-slot-start').textContent = hp.slot_start
+    ? `başladı: ${hp.slot_start}` : '—';
+
+  // Attempts history
+  let ah = '';
+  for (const a of (hp.attempts_history || []).slice().reverse()) {
+    let badge = 'info', resTxt = a.result || '—';
+    if (a.result === 'success') { badge = 'ok'; resTxt = '✓ başarılı'; }
+    else if (a.result === 'yolo_fail') { badge = 'warn'; resTxt = 'YOLO eledi'; }
+    else if (a.result === 'yolo_pass') { badge = 'ok'; resTxt = 'YOLO ok'; }
+    else if (a.result === 'timeout') { badge = 'bad'; resTxt = 'timeout'; }
+    else if (a.result === 'audio_done' || a.result === 'audio') { badge = 'info'; resTxt = 'ses ok'; }
+    else if (a.result === 'upload' || a.result === 'yt_uploaded') { badge = 'info'; resTxt = 'upload'; }
+    ah += `<div class="ap-attempt-row">
+      <span class="n">${a.n}/${hp.total_candidates||'?'}</span>
+      <span class="p">${a.plate}</span>
+      <span class="t">${a.vtype}</span>
+      <span class="r ${badge}">${resTxt}</span>
+    </div>`;
+  }
+  $('ap-attempt-list').innerHTML = ah
+    || '<div class="empty">henüz deneme yok</div>';
+
   // RESOURCES
   $('r-load').textContent = (r.load1||0).toFixed(2);
   $('r-load-foot').textContent = `1m: ${(r.load1||0).toFixed(2)} / 5m: ${(r.load5||0).toFixed(2)}`;
@@ -1868,6 +2281,10 @@ def _poll_loop(interval: float = 3.0):
                 _state.sample_cpu_ram_history()
             except Exception as e:
                 print(f"[poll] history hata: {e}")
+            try:
+                _state.sample_harvester_pipeline()
+            except Exception as e:
+                print(f"[poll] harv_pipe hata: {e}")
         counter += 1
         time.sleep(interval)
 
