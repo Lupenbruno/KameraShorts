@@ -226,15 +226,43 @@ class AnkaraShortsProducer:
             self.log.error("Registry/Recorder hazır değil")
             return None
 
+        # ÖNCE OTOBÜSLER: EGO API'sinde damperli kamyon, vakumlu süpürge vb.
+        # belediye iş araçları çok yoğun (özellikle gece). YOLO bunları doğru
+        # eliyor ama 10 deneme yetmiyor. Önce gerçek otobüsleri (Solo/ELK/
+        # Körüklü) dene, yetmezse fallback olarak tümü.
         try:
-            buses = self.registry.get_active_cameras(limit=30)
+            buses = self.registry.get_active_cameras(limit=30, buses_only=True)
         except Exception as e:
             self.log.error(f"EGO API hata: {e}")
             return None
+        if not buses or len(buses) < 5:
+            # Az otobüs varsa tüm araç tiplerini dene (gece saatlerinde)
+            self.log.info(
+                f"Otobüs sayısı az ({len(buses) if buses else 0}), "
+                f"fallback: tüm araç tipleri")
+            try:
+                buses = self.registry.get_active_cameras(limit=30)
+            except Exception as e:
+                self.log.error(f"EGO API hata: {e}")
+                return None
         if not buses:
             self.log.warning("Aktif araç yok")
             return None
-        self.log.info(f"EGO'dan {len(buses)} aktif araç alındı")
+
+        # Sort: önce otobüs tipleri, sonra hız
+        BUS_TYPES = {"Solo", "ELK", "Körüklü", "Körüklü ELK", "Minibüs", "Midibüs"}
+        def _bus_priority(v):
+            is_bus = 0 if v.get("vehicle_type", "") in BUS_TYPES else 1
+            try:
+                speed = float(v.get("speed", 0) or 0)
+            except (TypeError, ValueError):
+                speed = 0.0
+            return (is_bus, -speed)
+        buses.sort(key=_bus_priority)
+
+        bus_count = sum(1 for b in buses if b.get("vehicle_type", "") in BUS_TYPES)
+        self.log.info(
+            f"EGO'dan {len(buses)} araç alındı ({bus_count} otobüs öncelikli)")
 
         # Plaka dedup
         used = self._recent_plates()
@@ -246,20 +274,18 @@ class AnkaraShortsProducer:
                 f"hepsi denenecek")
             candidates = buses
 
-        # Hız sıralı
-        def _speed(v):
-            try:
-                return float(v.get("speed", 0) or 0)
-            except (TypeError, ValueError):
-                return 0.0
-        candidates.sort(key=lambda v: -_speed(v))
+        # candidates zaten yukarda (is_bus, -speed) ile sıralandı, tekrar siralama
+        # gereksiz. Plate dedup sonrası sıra korunur.
 
-        # Top 10 — ilk YOLO geçen ile dur
-        MAX_TRIES = 10
+        # Top 15 — ilk YOLO geçen ile dur (10→15 ile başarı oranı artar)
+        MAX_TRIES = 15
         now = datetime.now()
         for idx, bus in enumerate(candidates[:MAX_TRIES], 1):
             plate = bus.get("license_plate", "?")
-            speed = _speed(bus)
+            try:
+                speed = float(bus.get("speed", 0) or 0)
+            except (TypeError, ValueError):
+                speed = 0.0
             vtype = bus.get("vehicle_type", "?")
             self.log.info(
                 f"{idx}/{MAX_TRIES} → '{plate}' "
