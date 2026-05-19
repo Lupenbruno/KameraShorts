@@ -226,43 +226,25 @@ class AnkaraShortsProducer:
             self.log.error("Registry/Recorder hazır değil")
             return None
 
-        # ÖNCE OTOBÜSLER: EGO API'sinde damperli kamyon, vakumlu süpürge vb.
-        # belediye iş araçları çok yoğun (özellikle gece). YOLO bunları doğru
-        # eliyor ama 10 deneme yetmiyor. Önce gerçek otobüsleri (Solo/ELK/
-        # Körüklü) dene, yetmezse fallback olarak tümü.
+        # Tum araclar (otobus/kamyon/sürgü her tip) — YOLO karar verir.
+        # Arac tipinin onemi yok; gorsel ickilik kalitesi tek sec olcutu.
         try:
-            buses = self.registry.get_active_cameras(limit=30, buses_only=True)
+            buses = self.registry.get_active_cameras(limit=80)
         except Exception as e:
             self.log.error(f"EGO API hata: {e}")
             return None
-        if not buses or len(buses) < 5:
-            # Az otobüs varsa tüm araç tiplerini dene (gece saatlerinde)
-            self.log.info(
-                f"Otobüs sayısı az ({len(buses) if buses else 0}), "
-                f"fallback: tüm araç tipleri")
-            try:
-                buses = self.registry.get_active_cameras(limit=30)
-            except Exception as e:
-                self.log.error(f"EGO API hata: {e}")
-                return None
         if not buses:
             self.log.warning("Aktif araç yok")
             return None
 
-        # Sort: önce otobüs tipleri, sonra hız
-        BUS_TYPES = {"Solo", "ELK", "Körüklü", "Körüklü ELK", "Minibüs", "Midibüs"}
-        def _bus_priority(v):
-            is_bus = 0 if v.get("vehicle_type", "") in BUS_TYPES else 1
+        # Hız sıralı: hareketli araçlar genelde daha ilginç görüntü verir
+        def _speed(v):
             try:
-                speed = float(v.get("speed", 0) or 0)
+                return float(v.get("speed", 0) or 0)
             except (TypeError, ValueError):
-                speed = 0.0
-            return (is_bus, -speed)
-        buses.sort(key=_bus_priority)
-
-        bus_count = sum(1 for b in buses if b.get("vehicle_type", "") in BUS_TYPES)
-        self.log.info(
-            f"EGO'dan {len(buses)} araç alındı ({bus_count} otobüs öncelikli)")
+                return 0.0
+        buses.sort(key=lambda v: -_speed(v))
+        self.log.info(f"EGO'dan {len(buses)} aktif araç alındı (hız sıralı)")
 
         # Plaka dedup
         used = self._recent_plates()
@@ -274,13 +256,11 @@ class AnkaraShortsProducer:
                 f"hepsi denenecek")
             candidates = buses
 
-        # candidates zaten yukarda (is_bus, -speed) ile sıralandı, tekrar siralama
-        # gereksiz. Plate dedup sonrası sıra korunur.
-
-        # Top 15 — ilk YOLO geçen ile dur (10→15 ile başarı oranı artar)
-        MAX_TRIES = 15
+        # BULANA KADAR DENE — limit yok. İlk YOLO geçen aday ile dur.
+        # Tüm 80 araç tüketilirse slot atlanır, sonraki saat tekrar tetiklenir.
+        total = len(candidates)
         now = datetime.now()
-        for idx, bus in enumerate(candidates[:MAX_TRIES], 1):
+        for idx, bus in enumerate(candidates, 1):
             plate = bus.get("license_plate", "?")
             try:
                 speed = float(bus.get("speed", 0) or 0)
@@ -288,7 +268,7 @@ class AnkaraShortsProducer:
                 speed = 0.0
             vtype = bus.get("vehicle_type", "?")
             self.log.info(
-                f"{idx}/{MAX_TRIES} → '{plate}' "
+                f"{idx}/{total} → '{plate}' "
                 f"(tip: {vtype}, hız: {speed:.0f} km/h)")
             try:
                 clip_path = self.recorder.record(bus, now)
@@ -297,10 +277,13 @@ class AnkaraShortsProducer:
                 continue
             if not clip_path:
                 continue
-            self.log.info(f"✓ {plate} klip hazır: {Path(clip_path).name}")
+            self.log.info(
+                f"✓ {plate} klip hazır ({idx}/{total} aday denendi): "
+                f"{Path(clip_path).name}")
             return clip_path, plate
 
-        self.log.warning(f"{MAX_TRIES} aracın hepsi başarısız")
+        self.log.warning(
+            f"{total} aday tükendi, hiç biri YOLO/relay'den geçmedi — slot atlandı")
         return None
 
     # ── Metadata ─────────────────────────────────────────────────────────
