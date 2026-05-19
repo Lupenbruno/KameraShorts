@@ -59,7 +59,7 @@ class AudioMixer:
         )
 
     def add_audio(self, video_path: str, metadata: dict, location: str,
-                  weather: dict = None) -> str:
+                  weather: dict = None, duration: int = 180) -> str:
         """Videoya ambient + TTS sesi ve isteğe bağlı hava durumu overlay'i ekle."""
         city = metadata.get("city", location.split(",")[-1].strip())
 
@@ -129,7 +129,8 @@ class AudioMixer:
                         + [str(out_path)]
                     )
 
-            result = subprocess.run(cmd, capture_output=True, timeout=600, **_NW)
+            timeout_sec = max(duration * 3, 120)
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout_sec, **_NW)
             if result.returncode == 0 and out_path.exists():
                 if video.exists():
                     video.unlink()

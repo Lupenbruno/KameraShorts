@@ -10,3 +10,10 @@ config.yaml
 *.pt
 data/
 test_tts.mp3
+
+# v5 migration additions
+music/
+yolov8n.pt
+*.bak
+__pycache__/
+.git/config.local

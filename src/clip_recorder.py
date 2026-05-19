@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import sys
 import tempfile
+import threading
 import time
 import requests
 from datetime import datetime
@@ -16,6 +17,40 @@ log = logging.getLogger("kamerashorts")
 _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 RELAY_START_URL = "https://seyret.ankara.bel.tr/api/relay/start/{dvr}?provider={provider}"
+
+
+class _RelayRenewer:
+    """
+    EGO relay TTL renewal — kayıt sırasında relay'in expire olmasını önler.
+
+    Önemli not (önceki bug): ClipRecorder relay'i başlatıp 30s bekliyordu,
+    sonra segment indirme başlıyordu. EGO relay TTL=40s, renewal yoksa
+    kayıt sırasında relay sönüyordu → segment 404 → "Timeout" hatası.
+    Bu thread her 33 saniyede bir relay POST atarak TTL'i yeniler.
+    """
+    INTERVAL = 33  # TTL 40s, 7s marjla yenile
+
+    def __init__(self, session, dvr: str, provider: str = "ego"):
+        self._session = session
+        self._dvr = dvr
+        self._provider = provider
+        self._stop = threading.Event()
+
+    def start(self):
+        threading.Thread(target=self._loop, daemon=True,
+                         name=f"relay-renew-{self._dvr[:6]}").start()
+
+    def stop(self):
+        self._stop.set()
+
+    def _loop(self):
+        while not self._stop.wait(self.INTERVAL):
+            try:
+                url = RELAY_START_URL.format(dvr=self._dvr, provider=self._provider)
+                self._session.post(url, timeout=10)
+                log.debug(f"[relay] {self._dvr[:6]} yenilendi")
+            except Exception as e:
+                log.warning(f"[relay] {self._dvr[:6]} yenileme hatası: {e}")
 
 
 class ClipRecorder:
@@ -30,6 +65,7 @@ class ClipRecorder:
         self._session = requests.Session()
         self._session.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         self._session.headers["Referer"] = "https://seyret.ankara.bel.tr/"
+        self._session.verify = False  # onstream.ankara.bel.tr self-signed cert
 
     def _start_relay(self, vehicle: dict) -> bool:
         """Relay'i başlat ve m3u8 erişilebilir olana kadar bekle.
@@ -71,28 +107,25 @@ class ClipRecorder:
                            tmp_dir: str) -> list[str]:
         """
         m3u8 playlist'ten segmentleri direkt indir.
-        playlist refresh yavaş olduğu için her segmenti tek tek çekiyoruz.
-        Yeterli süre toplanana kadar devam eder.
+        onstream.ankara.bel.tr gibi uzun playlist geçmişi olan sunucularda
+        inner loop target_duration dolduğunda hemen durur.
         """
         base = stream_url.rsplit("/", 1)[0] + "/"
         seen = set()
         files = []
         total_duration = 0.0
-        deadline = time.time() + target_duration + 20  # max bekleme
-        empty_loops = 0  # ust uste bos dongu sayaci
+        deadline = time.time() + target_duration + 30  # max bekleme
+        new_this_round = 0  # bu turda gelen yeni segment sayisi
 
         while total_duration < target_duration and time.time() < deadline:
-            if empty_loops >= 4:  # 4 ust uste bos dongu = kamera takili, cik
-                break
+            new_this_round = 0
             try:
                 r = self._session.get(stream_url, timeout=8)
                 if r.status_code != 200:
                     time.sleep(2)
-                    empty_loops += 1
                     continue
 
                 lines = r.text.strip().split("\n")
-                # Segment süre ve URL'lerini parse et
                 i = 0
                 while i < len(lines):
                     line = lines[i].strip()
@@ -114,24 +147,22 @@ class ClipRecorder:
                                             f.write(sr.content)
                                         files.append(out_file)
                                         total_duration += seg_dur
+                                        new_this_round += 1
+                                        # Yeterli süre toplandıysa iç döngüyü hemen kır
+                                        if total_duration >= target_duration:
+                                            break
                                 except Exception:
                                     pass
                         i += 2
                     else:
                         i += 1
             except Exception:
-                empty_loops += 1
                 time.sleep(1)
                 continue
 
-            # Yeni segment geldiyse sayaci sifirla, gelmediyse artir
-            if len(files) > 0 and total_duration > 0:
-                empty_loops = 0
-            else:
-                empty_loops += 1
-
-            if total_duration < target_duration:
-                time.sleep(1)  # yeni segment bekleme
+            # Bu turda hiç yeni segment gelmediyse biraz bekle
+            if new_this_round == 0:
+                time.sleep(2)
 
         return files
 
@@ -142,13 +173,24 @@ class ClipRecorder:
         out_path = self.clips_dir / f"{plate}_{ts}.mp4"
 
         stream_url = vehicle["stream_url"]
+        dvr = vehicle.get("dvr_serial_number", "")
+        provider = vehicle.get("source", "ego")
 
         if not self._start_relay(vehicle):
             return None
 
+        # RELAY TTL renewal thread başlat — kayıt sırasında relay sönmesin
+        relay_renewer = None
+        if dvr:
+            relay_renewer = _RelayRenewer(self._session, dvr, provider)
+            relay_renewer.start()
+            log.info(f"[{plate}] Relay renewal aktif (TTL 40s, 33s'de bir yenileme)")
+
         # Relay açıkken 1 kare çek, YOLO ile ön kontrol
         if not quick_check(stream_url, self.ffmpeg):
             log.warning(f"[{plate}] Ön YOLO: zemin/damper/karanlık, atlanıyor")
+            if relay_renewer:
+                relay_renewer.stop()
             return None
 
         try:
@@ -166,6 +208,20 @@ class ClipRecorder:
                         f.write(f"file '{seg}'\n")
 
                 # ffmpeg ile concat → encode
+                # Format: 1080×1920 dikey canvas (Shorts kategorisi için zorunlu)
+                # İçerik: landscape kamera görüntüsü ortada (yatay korunur, kırpılmaz)
+                # Arka plan: aynı içeriğin BLUR'LU + zoom'lu versiyonu (profesyonel görünüm)
+                # YouTube otomatik olarak Shorts tab'ına alır (canvas 9:16).
+                vf = (
+                    "split=2[v1][v2];"
+                    # Background: scale up + crop to 1080x1920 + blur
+                    "[v1]scale=1080:1920:force_original_aspect_ratio=increase,"
+                          "crop=1080:1920,boxblur=20:1[bg];"
+                    # Foreground: landscape fitted to width 1080, height auto (16:9 → 1080x608)
+                    "[v2]scale=1080:-2:force_original_aspect_ratio=decrease[fg];"
+                    # Overlay: foreground centered on blurred background
+                    "[bg][fg]overlay=(W-w)/2:(H-h)/2"
+                )
                 cmd = [
                     self.ffmpeg, "-y",
                     "-f", "concat", "-safe", "0",
@@ -176,12 +232,11 @@ class ClipRecorder:
                     "-crf", "23",
                     "-c:a", "aac",
                     "-movflags", "+faststart",
-                    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,"
-                           "crop=1080:1920",
+                    "-vf", vf,
                     str(out_path)
                 ]
                 result = subprocess.run(cmd, capture_output=True,
-                                        timeout=self.duration + 45, **_NW)
+                                        timeout=self.duration + 90, **_NW)
 
                 if result.returncode == 0 and out_path.exists():
                     if out_path.stat().st_size > 100_000:
@@ -205,6 +260,9 @@ class ClipRecorder:
         except Exception as e:
             log.error(f"[{plate}] Kayıt hatası: {e}")
             return None
+        finally:
+            if relay_renewer:
+                relay_renewer.stop()
 
     def _is_frozen(self, video_path: str) -> bool:
         """İki kontrol: düşük bitrate VEYA aynı kareler → donuk."""
