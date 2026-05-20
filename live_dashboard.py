@@ -159,6 +159,23 @@ class StreamState:
             self._parse(lines[-2000:])
 
     def _parse(self, lines: list[str]):
+        # Frontend 4 sabit şehir adı bekliyor: Ankara, İstanbul, Çorum, Konya
+        # Backend log'da: "Ankara - 06 FVL 210", "Istanbul - Kadıköy", "Corum"
+        # Normalize edip frontend ile eşleştir.
+        CITY_NORMALIZE = {
+            "Ankara": "Ankara",
+            "Istanbul": "İstanbul",
+            "İstanbul": "İstanbul",
+            "Corum": "Çorum",
+            "Çorum": "Çorum",
+            "Konya": "Konya",
+        }
+
+        def _norm_city(name: str) -> str:
+            """'Istanbul - Kadıköy' → 'İstanbul', 'Ankara - 06 FVL 210' → 'Ankara'"""
+            base = name.split(" - ")[0].split(",")[0].strip()
+            return CITY_NORMALIZE.get(base, base)
+
         city_progress   = {}
         batch_history   = []
         streaming_batch = ""
@@ -348,7 +365,8 @@ class StreamState:
             # ── Collector: başladı ────────────────────────────────────────
             m = re.search(r'\[collector:(.*?)\] Başladı → hedef ([\d.]+)s', msg)
             if m:
-                city, target = m.group(1), float(m.group(2))
+                city = _norm_city(m.group(1))
+                target = float(m.group(2))
                 city_progress[city] = {
                     "dur": 0, "target": target, "status": "indiriliyor", "pct": 0,
                 }
@@ -357,7 +375,8 @@ class StreamState:
             # ── Collector: ilerleme ───────────────────────────────────────
             m = re.search(r'\[collector:(.*?)\] İlerleme: ([\d.]+)/([\d.]+)s', msg)
             if m:
-                city, dur, target = m.group(1), float(m.group(2)), float(m.group(3))
+                city = _norm_city(m.group(1))
+                dur, target = float(m.group(2)), float(m.group(3))
                 city_progress[city] = {
                     "dur": dur, "target": target,
                     "status": "indiriliyor",
@@ -368,7 +387,8 @@ class StreamState:
             # ── Collector: bitti ──────────────────────────────────────────
             m = re.search(r'\[collector:(.*?)\] Bitti: \d+ seg, ([\d.]+)/([\d.]+)s', msg)
             if m:
-                city, dur, target = m.group(1), float(m.group(2)), float(m.group(3))
+                city = _norm_city(m.group(1))
+                dur, target = float(m.group(2)), float(m.group(3))
                 ok = dur >= 30
                 city_progress[city] = {
                     "dur": dur, "target": target,
@@ -380,7 +400,7 @@ class StreamState:
             # ── Collector: yetersiz ───────────────────────────────────────
             m = re.search(r'\[collector:(.*?)\] Yetersiz', msg)
             if m:
-                city = m.group(1)
+                city = _norm_city(m.group(1))
                 if city in city_progress:
                     city_progress[city]["status"] = "başarısız"
                 continue
@@ -388,7 +408,7 @@ class StreamState:
             # ── Transcode: başladı ────────────────────────────────────────
             m = re.search(r'\[transcode:(.*?)\] Başladı \((\d+) seg → (\S+)\)', msg)
             if m:
-                city = m.group(1)
+                city = _norm_city(m.group(1))
                 seg_count = int(m.group(2))
                 transcode_active = {
                     "city": city, "started_ts": ts[-8:],
@@ -400,7 +420,7 @@ class StreamState:
             # ── Transcode: bitti (OK) ─────────────────────────────────────
             m = re.search(r'\[transcode:(.*?)\] OK — (\d+)s', msg)
             if m:
-                city = m.group(1)
+                city = _norm_city(m.group(1))
                 if transcode_active and transcode_active.get("city") == city:
                     transcode_active = None
                 if city in city_progress:
@@ -410,7 +430,7 @@ class StreamState:
             # ── Transcode: hata ───────────────────────────────────────────
             m = re.search(r'\[transcode:(.*?)\] (HATA|Zaman aşımı|İstisna)', msg)
             if m:
-                city = m.group(1)
+                city = _norm_city(m.group(1))
                 if transcode_active and transcode_active.get("city") == city:
                     transcode_active = None
                 if city in city_progress:
