@@ -62,19 +62,19 @@ FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 ACTIVE_HOURS = {6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23}
 
 # Başlık rotasyonu: tek format YouTube "Repetitive Content" cezasına yol açar.
-# 5 farklı şablon random seçilir.
+# 5 farklı şablon random seçilir. (Şehir adı KASITLI olarak belirtilmiyor.)
 TITLE_TEMPLATES = [
-    "{date_short} - Ankara Canlı Trafik #Shorts",
-    "Şu An Ankara: {weather_short} | Canlı Kamera #Shorts",
-    "Ankara EGO Otobüs Kamerası — {date_short} #Shorts",
-    "Ankara Yolları Canlı: {gun} {temp}°C #Shorts",
-    "Canlı Ankara | {gun_saat} — Şehir Trafiği #Shorts",
+    "{date_short} - Canlı Trafik Kamerası #Shorts",
+    "Şu An Canlı: {weather_short} | Şehir Kamerası #Shorts",
+    "Otobüs İçi Canlı Kamera — {date_short} #Shorts",
+    "Şehir Yolları Canlı: {gun} {temp}°C #Shorts",
+    "Canlı Sokak Kamerası | {gun_saat} — Trafik #Shorts",
 ]
 
-# Hashtag listesi — algoritmik sınıflandırma için
+# Hashtag listesi — algoritmik sınıflandırma için (şehir adı yok)
 HASHTAGS = (
-    "#Ankara #AnkaraCanlı #CanlıTrafik #EGO #Şehir #Trafik "
-    "#Turkey #Türkiye #LiveCamera #CanlıKamera #Shorts #AnkaraTrafik"
+    "#CanlıTrafik #CanlıKamera #Şehir #Trafik #Sokak "
+    "#Turkey #Türkiye #LiveCamera #Shorts #ŞehirKamerası #Trafikİzle"
 )
 
 
@@ -326,9 +326,9 @@ class AnkaraShortsProducer:
             temp=temp, weather_short=weather_short,
         )
 
-        tags = ["ankara", "ankara canlı", "ankara trafik", "ego",
-                "canlı kamera", "canlı trafik", "shorts", "trafik",
-                "turkey", "türkiye", "live camera", "şehir", "kamera"]
+        tags = ["canlı kamera", "canlı trafik", "shorts", "trafik",
+                "turkey", "türkiye", "live camera", "şehir", "kamera",
+                "sokak", "şehir kamerası", "canlı yayın"]
 
         weather_line = ""
         if weather:
@@ -336,28 +336,27 @@ class AnkaraShortsProducer:
                             f"{weather['temp']}°C {weather['condition']}\n")
 
         description = (
-            f"Ankara canlı kamera görüntüleri — EGO otobüs içi kamera.\n"
+            f"Canlı şehir kamera görüntüleri — otobüs içi canlı kamera.\n"
             f"📅 {turkce_tarih(now)}, saat {now.strftime('%H:%M')}.\n"
             f"{weather_line}"
-            f"\n👇 Sizce burası Ankara'nın hangi mahallesi? "
-            f"Yorumlara yazın!\n"
+            f"\n👇 Sizce burası neresi? Tahminini yorumlara yaz!\n"
             f"🔔 Her saat yeni bir canlı kamera için ABONE OL.\n"
             f"\n🎥 Otomatik üretim — KameraShorts.\n"
             f"\n" + HASHTAGS
         )
 
-        # TTS: tarih + hava + 2 CTA (yorum + abone)
-        tts_text = f"Ankara. {turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
+        # TTS: tarih + hava + 2 CTA (yorum + abone) — ŞEHİR ADI SÖYLENMİYOR
+        tts_text = f"{turkce_tarih(now)}, saat {now.strftime('%H:%M')}."
         if weather:
             tts_text += f" Hava {weather['condition']}, {weather['temp']} derece."
-        tts_text += " Sizce burası Ankara'nın hangi mahallesi? Yorumlara yazın."
+        tts_text += " Sizce burası neresi? Tahmininizi yorumlara yazın."
         tts_text += " Beğendiyseniz abone olun, her saat yeni bir canlı kamera!"
 
         return {
             "title": title[:100],
             "description": description,
             "tags": tags,
-            "city": "Ankara",
+            "city": "Türkiye",   # drawtext/overlay'de Ankara yerine generic
             "tts_text": tts_text,
             "category_id": "22",
         }
@@ -460,7 +459,7 @@ class AnkaraShortsProducer:
         # Audio mix (TTS + ambient + sağ üst hava drawtext)
         try:
             clip = self.mixer.add_audio(
-                clip, metadata, location="Ankara",
+                clip, metadata, location="Türkiye",
                 weather=weather, duration=40,
             )
             self.log.info("Ses karıştırıldı (TTS + 2 CTA cümlesi dahil)")
