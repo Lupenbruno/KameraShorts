@@ -56,10 +56,17 @@ USED_PLATES_FILE = Path("data/harvester_ankara_plates.json")
 DEDUP_HOURS = 24
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-# Algoritma cezasından kaçınmak için aktif saatler (verim analizinden):
-# SKIP: 00-05 (gece, kameralar zemin görür), 07 (anomali), 20 (prime-time rekabet)
-# ACTIVE: 06, 08-19, 21-23 — 17 saatlik pencere, max 17 video/gün
-ACTIVE_HOURS = {6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23}
+# Optimize edilmiş aktif saatler (207 video view analizi + YouTube Shorts algoritması):
+# Günde 6 video — self-cannibalization + spam riski minimal, kalite maksimum.
+#   09:00 sabah kuşağı (30 video kanıtlı, 250 ort view)
+#   12:00 öğle peak (339 ort, en güvenilir yüksek)
+#   14:00 ikindi peak (429 ort, en yüksek)
+#   17:00 iş çıkışı (akşam Shorts izleme başlangıcı)
+#   19:00 akşam yemek sonrası
+#   21:00 gece Shorts prime (yatmadan önce scroll)
+# SKIP: gece 22-08 (kameralar zemin/garaj, YOLO eler), 07/20 (kanıtlı ölü saatler),
+#       10/11/13/15/16/18 (self-cannibalization önleme — peak'lere yoğunlaş)
+ACTIVE_HOURS = {9, 12, 14, 17, 19, 21}
 
 # Başlık rotasyonu: tek format YouTube "Repetitive Content" cezasına yol açar.
 # 5 farklı şablon random seçilir. (Şehir adı KASITLI olarak belirtilmiyor.)
