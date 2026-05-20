@@ -32,6 +32,32 @@ class TelegramNotifier:
         except Exception as e:
             log.warning(f"Telegram gonderim hatasi: {e}")
 
+    def send_video(self, video_path: str, caption: str = "") -> bool:
+        """Video dosyasını Telegram'a gönder (TikTok manuel upload için).
+
+        Caption düz metin (parse_mode yok) — kopyala-yapıştır kolaylığı.
+        Telegram caption limiti 1024 karakter."""
+        if not self.enabled:
+            return False
+        try:
+            if not Path(video_path).exists():
+                log.warning(f"Video yok: {video_path}")
+                return False
+            url = f"https://api.telegram.org/bot{self.token}/sendVideo"
+            with open(video_path, "rb") as f:
+                r = requests.post(
+                    url,
+                    data={"chat_id": self.chat_id, "caption": caption[:1024]},
+                    files={"video": f},
+                    timeout=180,
+                )
+            if not r.ok:
+                log.warning(f"Telegram video HTTP {r.status_code}: {r.text[:200]}")
+            return r.ok
+        except Exception as e:
+            log.warning(f"Telegram video gonderim hatasi: {e}")
+            return False
+
     def video_uploaded(self, camera_name: str, title: str, youtube_url: str, city: str):
         emoji = "🚌" if city == "ankara" else "🌉"
         now = datetime.now().strftime("%H:%M")

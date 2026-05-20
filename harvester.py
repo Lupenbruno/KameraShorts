@@ -368,6 +368,20 @@ class AnkaraShortsProducer:
             "category_id": "22",
         }
 
+    # ── TikTok caption (Telegram'a video ile gönderilir, manuel upload için) ─
+
+    def _build_tiktok_caption(self, now: datetime,
+                              weather: Optional[dict]) -> str:
+        """TikTok için hazır caption — kopyala-yapıştır. Şehir adı yok."""
+        date_str = f"{now.day} {AYLAR[now.month-1]} {GUNLER[now.weekday()]}"
+        weather_str = (f"{weather['condition']} {weather['temp']}°C"
+                       if weather else "Canlı")
+        return (
+            f"Türkiye'den canlı kareler 🔴 Sizce burası neresi? 👇\n"
+            f"{date_str} • {weather_str}\n\n"
+            f"#türkiye #canlı #şehir #keşfet #fyp #trafik #sokak #foryou"
+        )
+
     # ── CTA Overlays (ABONE OL + YORUM) — algoritma engagement booster ───
 
     def _add_cta_overlays(self, clip_path: str) -> str:
@@ -478,6 +492,17 @@ class AnkaraShortsProducer:
             clip = self._add_cta_overlays(clip)
         except Exception as e:
             self.log.warning(f"CTA overlay hatası (orjinal ile devam): {e}")
+
+        # TikTok için: video + caption'ı Telegram'a gönder (upload ÖNCESİ —
+        # YouTubeUploader lokal klibi siler, o yüzden burada gönderiyoruz).
+        try:
+            tiktok_caption = self._build_tiktok_caption(now, weather)
+            if self.notifier.send_video(clip, tiktok_caption):
+                self.log.info("📲 TikTok videosu + caption Telegram'a gönderildi")
+            else:
+                self.log.info("Telegram video gönderilemedi (devam)")
+        except Exception as e:
+            self.log.warning(f"TikTok Telegram gönderim hatası: {e}")
 
         # Upload
         upload_success = False
