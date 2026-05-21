@@ -323,6 +323,22 @@ def resolve_camera(cam_cfg: dict) -> Optional[dict]:
             log.error(f"[resolve] Ankara API hatası: {e}")
             return None
 
+    if ctype == "pool_city":
+        # Havuzdan random şehir+kamera (pool_selector), dinamikse taze m3u8 resolve.
+        try:
+            import pool_selector
+            pick = pool_selector.pick_next()
+        except Exception as e:
+            log.error(f"[resolve] pool_city hatası: {e}")
+            return None
+        if not pick:
+            return None
+        return {
+            "name":       pick["name"],
+            "stream_url": pick["stream_url"],
+            "session":    _make_session(pick.get("headers") or {}, pick.get("ssl", True)),
+        }
+
     log.error(f"[resolve] Bilinmeyen kamera tipi: {ctype}")
     return None
 
@@ -928,7 +944,9 @@ class BatchBuilder:
                 continue
             safe_name    = re.sub(r"[^\w]", "_", city_name)
             out_ts       = batch_dir / f"{safe_name}.ts"
-            display_name = CITY_DISPLAY_MAP.get(city_key, city_key.upper())
+            # pool_city slotlarda city_key="Havuz-N" → CITY_DISPLAY_MAP'te yok;
+            # o zaman çözümlenen KAMERA ADINI göster (Havuz-1 değil).
+            display_name = CITY_DISPLAY_MAP.get(city_key) or city_name[:42]
             weather      = fetch_weather(city_key, owm_key)
             transcode_jobs.append((idx, city_key, city_name, segments, out_ts, display_name, weather))
 

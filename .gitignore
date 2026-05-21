@@ -17,3 +17,11 @@ yolov8n.pt
 *.bak
 __pycache__/
 .git/config.local
+
+# --- local backups & archives (ASLA commit etme; secret icerebilir) ---
+_archive/
+_bak*/
+_bak*.py
+*.bak.*
+*.bak-*
+config.yaml.*

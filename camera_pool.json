@@ -1,0 +1,1956 @@
+{
+  "updated": "2026-05-21 15:25",
+  "cameras": [
+    {
+      "city": "Çorum",
+      "name": "Gazi Caddesi",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/gazicaddesi.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2560x1440"
+    },
+    {
+      "city": "Çorum",
+      "name": "İnönü Caddesi",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/inonucaddesi.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2560x1440"
+    },
+    {
+      "city": "Çorum",
+      "name": "Arasta Çarşısı",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/arasta.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2560x1440"
+    },
+    {
+      "city": "Çorum",
+      "name": "Akşemseddin Camii",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/aksemseddincami.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Çorum",
+      "name": "Kent Meydanı",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/kentmeydani.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2592x1520"
+    },
+    {
+      "city": "Çorum",
+      "name": "Abide Kavşağı",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/abide-kavsagi.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2592x1520"
+    },
+    {
+      "city": "Çorum",
+      "name": "Tarihi Meydan",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/tarihi-meydan.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Çorum",
+      "name": "Millet Bahçesi",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/milletbahcesi.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2560x1440"
+    },
+    {
+      "city": "Çorum",
+      "name": "Millet Bahçesi Panoramik",
+      "stream_url": "https://mobilharita.corum.bel.tr/live/milletbahcesipanoramik.stream/playlist.m3u8",
+      "source": "corum",
+      "type": "hls",
+      "status": "active",
+      "res": "2560x1440"
+    },
+    {
+      "city": "Konya",
+      "name": "Şerafettin Camii",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/serafettin_camii.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Mevlana Meydanı",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/mevlana_meydani.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Zafer Meydanı Havuz",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/zafer_meydani_havuz.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Türbe Önü",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/turbe_onu.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Alaeddin Camii",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/alaeddin_camii.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Zafer Yürüyüş Yolu",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/zafer_yuruyus_yolu.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Millet Bahçesi",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/millet_bahcesi.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Konya",
+      "name": "Hayvan Bakımevi",
+      "stream_url": "https://konya-streaming.s3.de.io.cloud.ovh.net/streams/hayvan_bakimevi_1.m3u8",
+      "source": "konya",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Sultanahmet 1",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_sultanahmet.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Sultanahmet 2",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_sultanahmet2.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "0x0"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Salacak",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_salacak.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Kapalı Çarşı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_kapalicarsi.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Kadıköy",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_kadikoy.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Taksim Meydanı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_taksim_meydan.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Üsküdar",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_uskudar.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Kız Kulesi",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/new_Kızkulesi.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Eyüp Sultan",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_eyupsultan.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Anadolu Hisarı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_anadoluhisari.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Dragos",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_dragos.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Hidiv Kasrı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_hidivkasri.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Küçükçekmece",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_kucukcekmece.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Metrohan",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_metrohan.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Mısır Çarşısı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_misircarsisi.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Saraçhane",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_sarachane.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Ulus Parkı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_ulusparki.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Pierre Lotti",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_pierreloti.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Beyazıt Kulesi 1",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_beyazitkule.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Beyazıt Kulesi 2",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_beyazitkule2new.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Beyazıt Meydanı",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_beyazitmeydani.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Büyük Çamlıca",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_buyukcamlıca.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "İstanbul",
+      "name": "Miniatürk",
+      "stream_url": "https://livestream.ibb.gov.tr/cam_turistik/b_miniatürk.stream/playlist.m3u8",
+      "source": "ibb",
+      "type": "hls",
+      "status": "active",
+      "res": "3840x2160"
+    },
+    {
+      "city": "Reşadiye",
+      "name": "Reşadiye Merkez Canlı",
+      "stream_url": "https://resadiye.mrlife.xyz/out.m3u8",
+      "source": "resadiye.bel.tr",
+      "type": "hls",
+      "status": "active",
+      "res": "2560x1440"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Cumhuriyet Meydani   1",
+      "slug": "cumhuriyet-meydani---1",
+      "embed_id": "3073",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Cumhuriyet Meydani   2",
+      "slug": "cumhuriyet-meydani---2",
+      "embed_id": "3074",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Cumhuriyet Meydani   3",
+      "slug": "cumhuriyet-meydani---3",
+      "embed_id": "3075",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Cumhuriyet Meydani   4",
+      "slug": "cumhuriyet-meydani---4",
+      "embed_id": "3076",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Kaymakamlik   1",
+      "slug": "kaymakamlik---1",
+      "embed_id": "3072",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Kaymakamlik   2",
+      "slug": "kaymakamlik---2",
+      "embed_id": "3071",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Kaymakamlik   3",
+      "slug": "kaymakamlik---3",
+      "embed_id": "3070",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Pazar Yolu  1",
+      "slug": "pazar-yolu--1",
+      "embed_id": "3080",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Pazar Yolu  2",
+      "slug": "pazar-yolu--2",
+      "embed_id": "3081",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Caddesi   1",
+      "slug": "tekir-caddesi---1",
+      "embed_id": "3087",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Caddesi   2",
+      "slug": "tekir-caddesi---2",
+      "embed_id": "3088",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Elbiz Caddesi   1",
+      "slug": "elbiz-caddesi---1",
+      "embed_id": "3085",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Elbiz Caddesi   2",
+      "slug": "elbiz-caddesi---2",
+      "embed_id": "3086",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Koskpinar",
+      "slug": "koskpinar",
+      "embed_id": "3117",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Otopark",
+      "slug": "tekir-otopark",
+      "embed_id": "3068",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Erciyes",
+      "slug": "tekir-erciyes",
+      "embed_id": "3065",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Cesmeler",
+      "slug": "tekir-cesmeler",
+      "embed_id": "3064",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Gondol Alt Istasyonu",
+      "slug": "tekir-gondol-alt-istasyonu",
+      "embed_id": "3084",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Tekir Kizak Alani",
+      "slug": "tekir-kizak-alani",
+      "embed_id": "3067",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Develi Kultepe Alt Istasyonu",
+      "slug": "develi-kultepe-alt-istasyonu",
+      "embed_id": "3055",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Hisarcik Keven Alt",
+      "slug": "hisarcik-keven-alt",
+      "embed_id": "3082",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Hisarcik Seyir Alani",
+      "slug": "hisarcik-seyir-alani",
+      "embed_id": "3083",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Hacilar Gondol Alt",
+      "slug": "hacilar-gondol-alt",
+      "embed_id": "3079",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Hacilar Gondol Ust",
+      "slug": "hacilar-gondol-ust",
+      "embed_id": "3077",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Canakkale Sehitleri Anit Parki 2 Kopcullu Mah",
+      "slug": "canakkale-sehitleri-anit-parki-2-kopcullu-mah",
+      "embed_id": "3078",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi 80 Yil Parki 1 Hasan Sahan Mah Tedas Yani",
+      "slug": "80-yil-parki-1-hasan-sahan-mah-tedas-yani",
+      "embed_id": "3044",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi 80 Yil Parki 2 Hasan Sahan Mah Tedas Yani",
+      "slug": "80-yil-parki-2-hasan-sahan-mah-tedas-yani",
+      "embed_id": "3045",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Engelsiz Park 1 Yeni Mahalle",
+      "slug": "engelsiz-park-1-yeni-mahalle",
+      "embed_id": "3046",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Engelsiz Park 2 Yeni Mahalle",
+      "slug": "engelsiz-park-2-yeni-mahalle",
+      "embed_id": "3047",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Engelsiz Park 3 Yeni Mahalle",
+      "slug": "engelsiz-park-3-yeni-mahalle",
+      "embed_id": "3048",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Kevser Park 1 Masim Koksal Mahallesi",
+      "slug": "kevser-park-1-masim-koksal-mahallesi",
+      "embed_id": "3051",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Kevser Park 2 Masim Koksal Mahallesi",
+      "slug": "kevser-park-2-masim-koksal-mahallesi",
+      "embed_id": "3052",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Koyluoglu Park 1 Asik Seyrani Mahallesi",
+      "slug": "koyluoglu-park-1-asik-seyrani-mahallesi",
+      "embed_id": "3053",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Koyluoglu Park 2 Asik Seyrani Mahallesi",
+      "slug": "koyluoglu-park-2-asik-seyrani-mahallesi",
+      "embed_id": "3054",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Inci Park 2 Cami Cedit Mahallesi",
+      "slug": "inci-park-2-cami-cedit-mahallesi",
+      "embed_id": "3056",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Ahmet Adacoglu Park 1 Alparslan Mahallesi",
+      "slug": "ahmet-adacoglu-park-1-alparslan-mahallesi",
+      "embed_id": "3057",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Ahmet Adacoglu Park 2 Alparslan Mahallesi",
+      "slug": "ahmet-adacoglu-park-2-alparslan-mahallesi",
+      "embed_id": "3058",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Ahmet Adacoglu Park 3 Alparslan Mahallesi",
+      "slug": "ahmet-adacoglu-park-3-alparslan-mahallesi",
+      "embed_id": "3059",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Ahmet Adacoglu Park 4 Alparslan Mahallesi",
+      "slug": "ahmet-adacoglu-park-4-alparslan-mahallesi",
+      "embed_id": "3060",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi 400 Evler Parki 1 Makif Ersoy Mah",
+      "slug": "400-evler-parki-1-makif-ersoy-mah",
+      "embed_id": "3061",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi 400 Evler Parki 2 Makif Ersoy Mah",
+      "slug": "400-evler-parki-2-makif-ersoy-mah",
+      "embed_id": "3062",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Abdulkadir Geylani Parki 1 Yeni Mahalle",
+      "slug": "abdulkadir-geylani-parki-1-yeni-mahalle",
+      "embed_id": "3063",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Muhsin Yazicioglu Parki 2 Asagieverek Mah",
+      "slug": "muhsin-yazicioglu-parki-2-asagieverek-mah",
+      "embed_id": "3066",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Sehit Harun Arslan Park 1 Fatih Mahallesi",
+      "slug": "sehit-harun-arslan-park-1-fatih-mahallesi",
+      "embed_id": "3105",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Sehit Harun Arslan Park   2 Fatih Mahallesi",
+      "slug": "sehit-harun-arslan-park---2-fatih-mahallesi",
+      "embed_id": "3106",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Develi",
+      "name": "Develi Sehit Harun Arslan Park   4 Fatih Mahallesi",
+      "slug": "sehit-harun-arslan-park---4-fatih-mahallesi",
+      "embed_id": "3108",
+      "type": "develi_embed",
+      "source": "seyret.develi",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Çeşmeler",
+      "slug": "tekir-cesmeler",
+      "embed_id": "3064",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Pist",
+      "slug": "tekir-pist",
+      "embed_id": "3085",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Cumhuriyet Meydanı 2",
+      "slug": "cumhuriyet-meydani-2",
+      "embed_id": "4337",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Gondol Alt",
+      "slug": "tekir-gondol-alt",
+      "embed_id": "3084",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Erciyes",
+      "slug": "tekir-erciyes",
+      "embed_id": "3065",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hisarcık Divan Üst",
+      "slug": "hisarcik-divan-ust",
+      "embed_id": "4329",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Otopark",
+      "slug": "tekir-otopark",
+      "embed_id": "3068",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Cumhuriyet Meydanı Üst",
+      "slug": "cumhuriyet-meydani-ust",
+      "embed_id": "4370",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Karakulak Üst",
+      "slug": "hacilar-karakulak-ust",
+      "embed_id": "3080",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Lifos Üst",
+      "slug": "hacilar-lifos-ust",
+      "embed_id": "3077",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Talas Osmanlı Sokağı",
+      "slug": "talas-osmanli-sokagi",
+      "embed_id": "4339",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Buz Pisti",
+      "slug": "buz-pisti",
+      "embed_id": "3087",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hisarcık Keven Alt",
+      "slug": "hisarcik-keven-alt",
+      "embed_id": "3082",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Kızak Alanı",
+      "slug": "hacilar-kizak-alani",
+      "embed_id": "4356",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mehmet Şafak Yaşam Parkı",
+      "slug": "mehmet-safak-yasam-parki",
+      "embed_id": "4335",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Develi Kültepe Üst",
+      "slug": "develi-kultepe-ust",
+      "embed_id": "4351",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Sivas Caddesi",
+      "slug": "sivas-caddesi",
+      "embed_id": "3051",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Otopark",
+      "slug": "hacilar-otopark",
+      "embed_id": "4357",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Bünyan Meydan",
+      "slug": "bunyan-meydan",
+      "embed_id": "4398",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Develi Kaniş Üst",
+      "slug": "develi-kanis-ust",
+      "embed_id": "4360",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Seyir Alanı 1",
+      "slug": "tekir-seyir-alani-1",
+      "embed_id": "4332",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hisarcık Kızak Alanı",
+      "slug": "hisarcik-kizak-alani",
+      "embed_id": "4326",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Ali Dağı 360 Kafe",
+      "slug": "ali-dagi-360-kafe",
+      "embed_id": "4363",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hulusi Akar Camii",
+      "slug": "hulusi-akar-camii",
+      "embed_id": "4338",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Lifos Alt",
+      "slug": "hacilar-lifos-alt",
+      "embed_id": "3079",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Düvenönü 2",
+      "slug": "duvenonu-2",
+      "embed_id": "4362",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Erkilet Bulvarı",
+      "slug": "erkilet-bulvari",
+      "embed_id": "4346",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tekir Seyir Alanı 2",
+      "slug": "tekir-seyir-alani-2",
+      "embed_id": "4333",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Yahyalı Meydan 1",
+      "slug": "yahyali-meydan-1",
+      "embed_id": "4381",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hisarcık Otopark",
+      "slug": "hisarcik-otopark",
+      "embed_id": "4353",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Düvenönü 1",
+      "slug": "duvenonu-1",
+      "embed_id": "4361",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Osman Kavuncu Bulvarı",
+      "slug": "osman-kavuncu-bulvari",
+      "embed_id": "4347",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Develi Kaniş Alt",
+      "slug": "develi-kanis-alt",
+      "embed_id": "3054",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Kale İçi",
+      "slug": "kale-ici",
+      "embed_id": "4098",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Yoğunburç",
+      "slug": "yogunburc",
+      "embed_id": "4345",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Yolu",
+      "slug": "hacilar-yolu",
+      "embed_id": "4364",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Sivas Caddesi Üst",
+      "slug": "sivas-caddesi-ust",
+      "embed_id": "4355",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Tuna Parkı",
+      "slug": "tuna-parki",
+      "embed_id": "4340",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mimarsinan Parkı Üst",
+      "slug": "mimarsinan-parki-ust",
+      "embed_id": "4371",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Emirgan Üst Geçit",
+      "slug": "emirgan-ust-gecit",
+      "embed_id": "4394",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Yukarı Talas 2",
+      "slug": "yukari-talas-2",
+      "embed_id": "3075",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Sukaypark",
+      "slug": "sukaypark",
+      "embed_id": "4396",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Valilik Üst",
+      "slug": "valilik-ust",
+      "embed_id": "4372",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Yukarı Talas 1",
+      "slug": "yukari-talas-1",
+      "embed_id": "3076",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Yahyalı Kayseri Caddesi 1",
+      "slug": "yahyali-kayseri-caddesi-1",
+      "embed_id": "4374",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Melikgazi",
+      "slug": "melikgazi",
+      "embed_id": "4343",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Erciyes Bulvarı 2",
+      "slug": "erciyes-bulvari-2",
+      "embed_id": "4348",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Recep Tayyip Erdoğan Millet Bahçesi Festival Alanı",
+      "slug": "recep-tayyip-erdogan-millet-bahcesi-festival-alani",
+      "embed_id": "4401",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Seyyid Burhaneddin Hazretleri Türbesi",
+      "slug": "seyyid-burhaneddin-hazretleri-turbesi",
+      "embed_id": "4336",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Yahyalı Kayseri Caddesi 2",
+      "slug": "yahyali-kayseri-caddesi-2",
+      "embed_id": "4375",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Sanayi Odası",
+      "slug": "sanayi-odasi",
+      "embed_id": "4342",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hunat Üst",
+      "slug": "hunat-ust",
+      "embed_id": "4373",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mustafa Kemal Paşa Bulvarı 1",
+      "slug": "mustafa-kemal-pasa-bulvari-1",
+      "embed_id": "3053",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hayvanat Bahçesi 1",
+      "slug": "hayvanat-bahcesi-1",
+      "embed_id": "4092",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hacılar Park",
+      "slug": "hacilar-park",
+      "embed_id": "4365",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mustafa Kemal Paşa Bulvarı 3",
+      "slug": "mustafa-kemal-pasa-bulvari-3",
+      "embed_id": "4341",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hayvanat Bahçesi 2",
+      "slug": "hayvanat-bahcesi-2",
+      "embed_id": "4093",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Hayvanat Bahçesi 3",
+      "slug": "hayvanat-bahcesi-3",
+      "embed_id": "4094",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Şehit Bülent Doğan Üstgeçidi 2",
+      "slug": "sehit-bulent-dogan-ustgecidi-2",
+      "embed_id": "4101",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mimarsinan 3",
+      "slug": "mimarsinan-3",
+      "embed_id": "4408",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mimarsinan 2",
+      "slug": "mimarsinan-2",
+      "embed_id": "4407",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kayseri",
+      "name": "Kayseri Mimarsinan 1",
+      "slug": "mimarsinan-1",
+      "embed_id": "4406",
+      "type": "kayseri_embed",
+      "source": "tv.kayseri",
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kartepe Zirve",
+      "slug": "kartepe-zirve",
+      "cid": "9",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kartepe Kuzuyayla Tabiat Parki",
+      "slug": "kartepe-kuzuyayla-tabiat-parki",
+      "cid": "3091",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kartepe Derbent Teleferik Istasyonu",
+      "slug": "kartepe-derbent-teleferik-istasyonu",
+      "cid": "3098",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kartepe Ormanya Leylek Yuvasi",
+      "slug": "kartepe-ormanya-leylek-yuvasi",
+      "cid": "3089",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Golcuk Eriklitepe Tabiat Parki",
+      "slug": "golcuk-eriklitepe-tabiat-parki",
+      "cid": "2031",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kartepe Ormanya",
+      "slug": "kartepe-ormanya",
+      "cid": "2085",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Cumhuriyet Bulvari1",
+      "slug": "izmit-cumhuriyet-bulvari1",
+      "cid": "2033",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Cumhuriyet Bulvari2",
+      "slug": "izmit-cumhuriyet-bulvari2",
+      "cid": "2035",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kocaeli Buyuksehir Belediyesi",
+      "slug": "kocaeli-buyuksehir-belediyesi",
+      "cid": "2073",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Kent Meydani",
+      "slug": "izmit-kent-meydani",
+      "cid": "21",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Gebze Coban Mustafa Pasa Camii",
+      "slug": "gebze-coban-mustafa-pasa-camii",
+      "cid": "3090",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Bagcesme",
+      "slug": "izmit-bagcesme",
+      "cid": "1028",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Milli Irade Meydani",
+      "slug": "izmit-milli-irade-meydani",
+      "cid": "3092",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kandira Kerpe Sahil",
+      "slug": "kandira-kerpe-sahil",
+      "cid": "1023",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Sekapark Ucurtma Tepesi",
+      "slug": "izmit-sekapark-ucurtma-tepesi",
+      "cid": "6",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Darica Dudayev Parki",
+      "slug": "darica-dudayev-parki",
+      "cid": "2084",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Basiskele Sahil",
+      "slug": "basiskele-sahil",
+      "cid": "1030",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kartepe Batti Cikti",
+      "slug": "kartepe-batti-cikti",
+      "cid": "1031",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Halkevi Ve Sahil",
+      "slug": "izmit-halkevi-ve-sahil",
+      "cid": "3",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Gebze Balkan Turkleri Parki",
+      "slug": "gebze-balkan-turkleri-parki",
+      "cid": "10",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Cumhuriyet Parki ",
+      "slug": "izmit-cumhuriyet-parki-",
+      "cid": "2077",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Sekapark Ucak Bolgesi",
+      "slug": "izmit-sekapark-ucak-bolgesi",
+      "cid": "8",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Gebze Eskihisar Millet Bahcesi",
+      "slug": "gebze-eskihisar-millet-bahcesi",
+      "cid": "20",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Golcuk Yazlik Kadirga Yaylasi",
+      "slug": "golcuk-yazlik-kadirga-yaylasi",
+      "cid": "2082",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Golcuk Anit Park",
+      "slug": "golcuk-anit-park",
+      "cid": "12",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Fevziye Camii",
+      "slug": "izmit-fevziye-camii",
+      "cid": "5",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Dilovasi Kent Meydani",
+      "slug": "dilovasi-kent-meydani",
+      "cid": "2083",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Korfez Kent Meydani",
+      "slug": "korfez-kent-meydani",
+      "cid": "14",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Izmit Saat Kulesi",
+      "slug": "izmit-saat-kulesi",
+      "cid": "2045",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Kocaeli",
+      "name": "Kocaeli Kandira Cebeci Halk Plaji",
+      "slug": "kandira-cebeci-halk-plaji",
+      "cid": "2046",
+      "type": "kocaeli_tvkur",
+      "source": "kocaeliyiseyret",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "status": "active"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cin6kl9aojt0t6459qmg",
+      "status": "active",
+      "err": "https://content.tvkur.com/l/cin6kl9aojt0t6459qmg/master.m3u8: Server r"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cin84c1aojt0t6459thg",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cin83spaojt0t6459tg0",
+      "status": "active",
+      "err": "https://content.tvkur.com/l/cin83spaojt0t6459tg0/master.m3u8: Server r"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cin8279aojt0t6459te0",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cin7441aojt0t6459r40",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cimks99aojt0t64593b0",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cin6vmhaojt0t6459qvg",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "ciog451aojt0t645cddg",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cisjnt1aojt2lfp2k5q0",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cj69rf5052aveu3s8ls0",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cj69rut052aveu3s8ltg",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cj69tk5052aveu3s8m3g",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cvhq821pkpqs739cm6u0",
+      "status": "active",
+      "res": "1280x720"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "d7pftl58h5hc73bg4e80",
+      "status": "active",
+      "res": "1280x720"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "crdeq61pkpqs73a6dmn0",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "cs7rf4um756c73a3ie7g",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "csi7rpum756c73a4lkug",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "csi7r0um756c73a4lk90",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "d4k1t2iescpc73f37n3g",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Balıkesir",
+      "name": "Balıkesir Şehir Kameraları",
+      "source": "balikesir",
+      "type": "tvkur_channel",
+      "headers": {
+        "Referer": "https://player.tvkur.com/"
+      },
+      "channel_id": "d7nfned8h5hc73bg06m0",
+      "status": "active",
+      "res": "1920x1080"
+    },
+    {
+      "city": "Ankara",
+      "name": "EGO Otobüs Filosu (359 araç)",
+      "stream_url": null,
+      "source": "seyret.ankara (relay)",
+      "type": "ankara_ego",
+      "count": 359,
+      "status": "mobile",
+      "note": "Mobil otobüs kameraları — relay ile açılır, harvester kaynağı"
+    }
+  ]
+}

@@ -15,7 +15,11 @@ import json as _json
 
 
 def quick_check(stream_url: str, ffmpeg_path: str) -> bool:
-    """YOLO subprocess on-kontrol (1 kare). Hata olursa True (gec)."""
+    """YOLO subprocess ÖN-kontrol (1 kare). Bu sadece bir ÖN-FİLTRE'dir —
+    asıl ZORUNLU kapı kayıt-sonrası analyze_clip'tir. Bu yüzden burada hata/
+    sonuç-yok durumunda True (geç) dönülür (fail-open): referer-gated veya
+    EGO stream'lerde tek kare çekilemese bile kayıt denenir; taranmamış klip
+    yine de analyze_clip kapısından geçemez."""
     try:
         r = subprocess.run(
             [sys.executable, "-m", "src.yolo_runner", "quickcheck",
@@ -34,7 +38,12 @@ def quick_check(stream_url: str, ffmpeg_path: str) -> bool:
 
 def analyze_clip(clip_path: str, ffmpeg_path: str,
                  duration: int = 40) -> tuple[int, int, str]:
-    """YOLO subprocess klip analizi (skor + threshold + thumb)."""
+    """YOLO subprocess klip analizi (skor + threshold + thumb).
+
+    ZORUNLU YOLO KAPISI (fail-CLOSED): subprocess çalışmaz / RESULT satırı
+    gelmezse score=0 döner → çağıran 'score < threshold' görür → klip REDDEDİLİR.
+    Böylece taranmamış hiçbir klip yayına çıkmaz. (yolo_runner, modeli
+    yükleyemezse ai_filter de total=0 verir; iki katman da fail-closed.)"""
     try:
         r = subprocess.run(
             [sys.executable, "-m", "src.yolo_runner", "analyze",
@@ -51,7 +60,7 @@ def analyze_clip(clip_path: str, ffmpeg_path: str,
                         d.get("thumb", ""))
     except Exception:
         pass
-    return 99, 4, ""
+    return 0, 4, ""   # fail-closed: YOLO sonuç vermedi → reddet
 
 
 log = logging.getLogger("kamerashorts")

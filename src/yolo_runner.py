@@ -58,6 +58,18 @@ def cmd_quickcheck(args):
         sys.exit(3)
 
 
+def cmd_framecheck(args):
+    """ÖNCEDEN ÇIKARILMIŞ kareyi ön-ele (Referer-bilir: kareyi çağıran çeker)."""
+    from src.ai_filter import quick_check_frame
+    try:
+        passed = quick_check_frame(args.frame)
+        print("RESULT:" + json.dumps({"passed": bool(passed)}))
+        sys.exit(0 if passed else 2)
+    except Exception as e:
+        print("ERROR:" + str(e), file=sys.stderr)
+        sys.exit(3)
+
+
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -72,6 +84,10 @@ def main():
     q.add_argument("--url", required=True)
     q.add_argument("--ffmpeg", default="ffmpeg")
     q.set_defaults(func=cmd_quickcheck)
+
+    f = sub.add_parser("framecheck", help="Önceden çıkarılmış kare ön-eleme")
+    f.add_argument("--frame", required=True)
+    f.set_defaults(func=cmd_framecheck)
 
     args = p.parse_args()
     args.func(args)

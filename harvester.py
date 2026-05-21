@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""KameraShorts — Ankara Shorts Üretici (saatlik, sadece Ankara).
+"""KameraShorts — Çok Şehirli Shorts Üretici (saatlik, TÜM şehirler).
 
 Mimari: Stream'den BAĞIMSIZ
 ─────────────────────────
-- live_streamer.py 4 şehri kesintisiz YouTube/Kick yayınına gönderir (stream).
-- BU SERVİS sadece saatte 1 kez (:15) çalışır:
-    1. EGO API'den canlı otobüs çek (~50 araç)
-    2. Hareketli + taze plakalı 10 aday seç
-    3. ClipRecorder ile HLS'ten 40s kayıt (relay TTL renewal ile)
-    4. YOLO subprocess ile içerik kontrolü (lazy: RAM'i kirletmez)
-    5. İlk geçen klibi: 1080×1920 dikey, drawtext, audio mix, YouTube upload
-- Stream batch dosyalarına (/tmp/ks_v4/batch_*.ts) DOKUNMAZ.
-
-İstanbul/Çorum/Konya: bu servis tarafından üretilmez. Sadece stream rotation'da
-görünür. Otomatik YouTube upload sadece Ankara içindir.
+- live_streamer.py şehirleri kesintisiz YouTube/Kick yayınına gönderir (stream).
+- BU SERVİS sadece saatte 1 kez (:15) çalışır ve HER SLOT'ta bir şehir seçer:
+    • Ankara  → EGO API canlı otobüs (relay + TTL renewal, ClipRecorder)
+    • Diğer   → camera_pool.json havuzundan sabit şehir kamerası (resolver +
+                 GenericRecorder.record_url, Referer header'lı)
+  Şehir seçimi: anti-repeat (son slotlardaki şehri tekrar seçme).
+- YOLO taraması ZORUNLU (fail-closed): kayıt sonrası analiz GEÇMEZSE klip atılır.
+  YOLO modeli yüklenemezse de klip REDDEDİLİR (yayına taranmamış içerik çıkmaz).
+- Şehir adı GİZLİ tutulur: başlık/overlay/TTS şehri söylemez ("Sizce burası
+  neresi?" tahmin formatı tüm şehirler için). Stream batch'lerine DOKUNMAZ.
 
 Kullanım:
   python harvester.py --daemon                # daemon, saat :15'te çalışır
   python harvester.py --once                  # test: bir kez şimdi çalıştır
   python harvester.py --once --no-upload      # üret ama upload etme
+  python harvester.py --once --city İstanbul  # belirli şehri zorla (test)
 """
 import argparse
 import json
@@ -42,6 +42,9 @@ from src.weather import get_weather
 from src.youtube_uploader import YouTubeUploader
 from src.camera_registry import CameraRegistry
 from src.clip_recorder import ClipRecorder
+from src.generic_recorder import GenericRecorder
+
+import resolvers  # /opt/KameraShorts/resolvers.py — havuz kameralarını taze m3u8'e çözer
 
 
 # ─── Sabitler ───────────────────────────────────────────────────────────────
@@ -53,8 +56,27 @@ GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma",
 
 STATS_FILE = Path("data/harvester_stats.json")
 USED_PLATES_FILE = Path("data/harvester_ankara_plates.json")
+USED_CAMS_FILE = Path("data/harvester_used_cams.json")     # havuz kamera dedup
+USED_CITIES_FILE = Path("data/harvester_used_cities.json")  # slot-bazlı şehir anti-repeat
 DEDUP_HOURS = 24
+CAM_DEDUP_HOURS = 12          # aynı havuz kamerasını 12h tekrar gösterme
+CITY_ANTIREPEAT = 2          # son 2 slotta kullanılan şehri tekrar seçme
+POOL_MAX_CANDIDATES = 8      # havuz şehri için en fazla N kamera dene (sonra slot atla)
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+POOL_PATH = "/opt/KameraShorts/camera_pool.json"
+# Ankara mobil (ankara_ego) havuz dışı — EGO path'i ile ayrı üretilir.
+POOL_EXCLUDE_TYPES = {"ankara_ego"}
+
+# Havuz şehirleri için hava durumu koordinatları (weather.CITY_COORDS dışındakiler).
+# get_weather(lat=, lon=) ile çözülür. Bulunmayan şehir → hava durumu atlanır (sorun değil).
+POOL_CITY_COORDS = {
+    "İstanbul": (41.0082, 28.9784), "Kayseri": (38.7312, 35.4787),
+    "Kocaeli": (40.7654, 29.9408), "Balıkesir": (39.6484, 27.8826),
+    "Çorum": (40.5506, 34.9556), "Konya": (37.8714, 32.4846),
+    "Develi": (38.3906, 35.4906), "Reşadiye": (40.3914, 37.3447),
+    "Ankara": (39.9334, 32.8597),
+}
 
 # Optimize edilmiş aktif saatler (207 video view analizi + YouTube Shorts algoritması):
 # Günde 6 video — self-cannibalization + spam riski minimal, kalite maksimum.
@@ -73,7 +95,7 @@ ACTIVE_HOURS = {9, 12, 14, 17, 19, 21}
 TITLE_TEMPLATES = [
     "{date_short} - Canlı Trafik Kamerası #Shorts",
     "Şu An Canlı: {weather_short} | Şehir Kamerası #Shorts",
-    "Otobüs İçi Canlı Kamera — {date_short} #Shorts",
+    "Canlı Kamera Yayını — {date_short} #Shorts",
     "Şehir Yolları Canlı: {gun} {temp}°C #Shorts",
     "Canlı Sokak Kamerası | {gun_saat} — Trafik #Shorts",
 ]
@@ -94,7 +116,11 @@ def turkce_tarih(dt: datetime) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class AnkaraShortsProducer:
-    """Saatlik Ankara Shorts üretici. Stream'den bağımsız."""
+    """Saatlik ÇOK ŞEHİRLİ Shorts üretici. Stream'den bağımsız.
+
+    (Sınıf adı geçmiş uyumluluk için korundu — artık Ankara + havuz şehirleri.)
+    Her slot bir şehir seçer: Ankara → EGO otobüs, diğerleri → camera_pool.json.
+    """
 
     def __init__(self, config_path: str = "config.yaml"):
         with open(config_path, encoding="utf-8") as f:
@@ -139,40 +165,61 @@ class AnkaraShortsProducer:
             self.log.warning(f"ClipRecorder yüklenemedi: {e}")
             self.recorder = None
 
-        # Stats
-        self.stats = {
-            "ankara": {
-                "attempts": 0, "success": 0, "failed": 0, "queued": 0,
-                "last_run": None, "last_status": "—", "last_error": "",
-                "last_youtube_url": "", "last_batch": "",
-                "last_plate": "", "unique_plates_24h": 0,
-            }
-        }
+        # Havuz şehirleri için genel kaydedici (Referer header + tls_verify 0,
+        # 1080×1920 Shorts canvas, ZORUNLU kayıt-sonrası YOLO).
+        try:
+            self.pool_recorder = GenericRecorder(
+                clips_dir="data/clips", duration=40, ffmpeg_path=self.ffmpeg)
+        except Exception as e:
+            self.log.warning(f"GenericRecorder yüklenemedi: {e}")
+            self.pool_recorder = None
+
+        # Stats — şehir bazlı bucket'lar. Dashboard ankara/istanbul/corum/konya
+        # okur; diğer şehir anahtarları eklenebilir (dashboard bilmediğini yok sayar).
+        self.stats = {}
+        for _c in ("ankara", "istanbul", "corum", "konya"):
+            self.stats[_c] = self._blank_stats()
+        self.stats["ankara"].update({"last_plate": "", "unique_plates_24h": 0})
         self._load_stats()
 
-    # ── Stats persistence ────────────────────────────────────────────────
+    # ── Stats persistence (şehir bazlı) ──────────────────────────────────
+
+    @staticmethod
+    def _blank_stats() -> dict:
+        return {"attempts": 0, "success": 0, "failed": 0, "queued": 0,
+                "last_run": None, "last_status": "—", "last_error": "",
+                "last_youtube_url": "", "last_batch": "", "last_camera": ""}
+
+    @staticmethod
+    def _city_key(city: str) -> str:
+        """Şehir görünen adı → stats anahtarı: 'İstanbul'→'istanbul', 'Çorum'→'corum'."""
+        tr = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosucgiosU")
+        return (city or "?").translate(tr).lower().replace(" ", "")
+
+    def _bucket(self, city: str) -> dict:
+        k = self._city_key(city)
+        if k not in self.stats:
+            self.stats[k] = self._blank_stats()
+        return self.stats[k]
 
     def _load_stats(self):
         try:
             if STATS_FILE.exists():
                 saved = json.loads(STATS_FILE.read_text(encoding="utf-8"))
-                if "ankara" in saved:
-                    self.stats["ankara"].update(saved["ankara"])
+                for k, v in saved.items():
+                    if isinstance(v, dict):
+                        self.stats.setdefault(k, self._blank_stats()).update(v)
         except Exception as e:
             self.log.warning(f"Stats yüklenemedi: {e}")
 
     def _save_stats(self):
         try:
             STATS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            # Backwards-compat: harvester_stats.json hala 4 sehir formatinda
-            full = {
-                "ankara": self.stats["ankara"],
-                "istanbul": {"attempts": 0, "success": 0, "failed": 0, "queued": 0},
-                "corum":    {"attempts": 0, "success": 0, "failed": 0, "queued": 0},
-                "konya":    {"attempts": 0, "success": 0, "failed": 0, "queued": 0},
-            }
+            # Dashboard ankara/istanbul/corum/konya bekler — hep mevcut olsun.
+            for _c in ("ankara", "istanbul", "corum", "konya"):
+                self.stats.setdefault(_c, self._blank_stats())
             STATS_FILE.write_text(
-                json.dumps(full, ensure_ascii=False, indent=2, default=str),
+                json.dumps(self.stats, ensure_ascii=False, indent=2, default=str),
                 encoding="utf-8",
             )
         except Exception as e:
@@ -225,7 +272,9 @@ class AnkaraShortsProducer:
 
     def _analyze_clip(self, clip_path: str, duration: int = 40):
         """YOLO subprocess — RAM tasarrufu (model in-process load EDILMEZ).
-        Doner: (score, threshold, thumb)."""
+        Doner: (score, threshold, thumb).
+        ZORUNLU YOLO: subprocess çalışmazsa/sonuç yoksa score=0 → klip REDDEDİLİR
+        (fail-closed). Taranmamış içerik yayına çıkmaz."""
         try:
             r = subprocess.run(
                 [sys.executable, "-m", "src.yolo_runner", "analyze",
@@ -242,7 +291,7 @@ class AnkaraShortsProducer:
                             d.get("thumb", ""))
         except Exception as e:
             self.log.warning(f"YOLO subprocess hata: {e}")
-        return 99, 4, ""
+        return 0, 4, ""   # fail-closed: YOLO sonuç vermedi → reddet
 
     # ── Ankara üretim — Direct EGO HLS ────────────────────────────────────
 
@@ -315,6 +364,144 @@ class AnkaraShortsProducer:
             f"{total} aday tükendi, hiç biri YOLO/relay'den geçmedi — slot atlandı")
         return None
 
+    # ── Havuz (çok şehirli) — camera_pool.json ───────────────────────────
+
+    def _pool_cities(self) -> dict:
+        """camera_pool.json'dan AKTİF sabit kameralar, şehir bazlı dict.
+        Ankara mobil (ankara_ego) hariç — o ayrı EGO path ile üretilir."""
+        try:
+            data = json.loads(Path(POOL_PATH).read_text(encoding="utf-8"))
+        except Exception as e:
+            self.log.warning(f"camera_pool.json okunamadı: {e}")
+            return {}
+        out = {}
+        for c in data.get("cameras", []):
+            if c.get("status") != "active":
+                continue
+            if c.get("type") in POOL_EXCLUDE_TYPES:
+                continue
+            out.setdefault(c.get("city", "?"), []).append(c)
+        return out
+
+    def _recent_cams(self, hours: int = CAM_DEDUP_HOURS) -> set:
+        if not USED_CAMS_FILE.exists():
+            return set()
+        try:
+            data = json.loads(USED_CAMS_FILE.read_text(encoding="utf-8"))
+            cutoff = datetime.now() - timedelta(hours=hours)
+            return {k for k, ts in data.items()
+                    if datetime.fromisoformat(ts) > cutoff}
+        except Exception:
+            return set()
+
+    def _record_cam(self, cam_key: str):
+        if not cam_key:
+            return
+        data = {}
+        if USED_CAMS_FILE.exists():
+            try:
+                data = json.loads(USED_CAMS_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+        data[cam_key] = datetime.now().isoformat()
+        cutoff = datetime.now() - timedelta(hours=CAM_DEDUP_HOURS * 2)
+        data = {k: ts for k, ts in data.items()
+                if datetime.fromisoformat(ts) > cutoff}
+        USED_CAMS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = USED_CAMS_FILE.with_suffix(".json.tmp")
+        try:
+            tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(USED_CAMS_FILE)
+        except Exception:
+            pass
+
+    def _recent_cities(self, n: int = CITY_ANTIREPEAT) -> list:
+        try:
+            data = json.loads(USED_CITIES_FILE.read_text(encoding="utf-8"))
+            return list(data.get("recent", []))[-n:]
+        except Exception:
+            return []
+
+    def _record_city(self, city: str):
+        recent = self._recent_cities(n=10) + [city]
+        USED_CITIES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            USED_CITIES_FILE.write_text(
+                json.dumps({"recent": recent[-10:]}, ensure_ascii=False),
+                encoding="utf-8")
+        except Exception:
+            pass
+
+    def _pick_city(self) -> Optional[str]:
+        """Bu slot için şehir seç: Ankara (EGO hazırsa) + havuz şehirleri,
+        son CITY_ANTIREPEAT slotta kullanılanları ele, kalanlardan random."""
+        choices = list(self._pool_cities().keys())
+        if self.registry and self.recorder:
+            choices.append("Ankara")
+        if not choices:
+            return None
+        recent = set(self._recent_cities())
+        fresh = [c for c in choices if c not in recent]
+        pool = fresh or choices   # hepsi yakın zamanda kullanıldıysa yine de seç
+        return random.choice(pool)
+
+    def _city_weather(self, city: str) -> Optional[dict]:
+        """Şehir için hava durumu (best-effort). Koordinat yoksa/başarısızsa None."""
+        if not self.owm_key:
+            return None
+        coords = POOL_CITY_COORDS.get(city)
+        if not coords:
+            return None
+        try:
+            return get_weather(lat=coords[0], lon=coords[1], api_key=self.owm_key)
+        except Exception:
+            return None
+
+    def produce_pool_city(self, city: str, cams: list,
+                          weather: Optional[dict]) -> Optional[tuple[str, str]]:
+        """Havuz şehrinden: kameraları karıştır → resolve → kaydet → ZORUNLU YOLO.
+        İlk geçen klibi döndür. Returns (clip_path, cam_key) veya None."""
+        if not self.pool_recorder:
+            self.log.error("GenericRecorder hazır değil")
+            return None
+        if not cams:
+            self.log.warning(f"{city}: havuzda aktif kamera yok")
+            return None
+
+        cams = list(cams)
+        random.shuffle(cams)
+        used = self._recent_cams()
+        ordered = ([c for c in cams if (c.get("name", "") + c.get("city", "")) not in used]
+                   + [c for c in cams if (c.get("name", "") + c.get("city", "")) in used])
+        ordered = ordered[:POOL_MAX_CANDIDATES]
+
+        now = datetime.now()
+        for idx, cam in enumerate(ordered, 1):
+            name = cam.get("name", city)
+            cam_key = cam.get("name", "") + cam.get("city", "")
+            try:
+                url = resolvers.resolve(cam)
+            except Exception as e:
+                self.log.warning(f"{city} {idx}: resolve hata: {e}")
+                continue
+            if not url:
+                self.log.info(f"{city} {idx}/{len(ordered)} → resolve boş, atla")
+                continue
+            self.log.info(f"{city} {idx}/{len(ordered)} → {name}")
+            try:
+                clip = self.pool_recorder.record_url(
+                    url, name, now, headers=cam.get("headers") or {})
+            except Exception as e:
+                self.log.error(f"{name}: kayıt hata: {e}")
+                continue
+            if clip:
+                self.log.info(f"✓ {name} klip hazır ({idx}/{len(ordered)} denendi)")
+                return clip, cam_key
+
+        self.log.warning(
+            f"{city}: {len(ordered)} aday denendi, YOLO'dan geçen yok — slot atlandı")
+        return None
+
     # ── Metadata ─────────────────────────────────────────────────────────
 
     def _build_metadata(self, now: datetime,
@@ -343,7 +530,7 @@ class AnkaraShortsProducer:
                             f"{weather['temp']}°C {weather['condition']}\n")
 
         description = (
-            f"Canlı şehir kamera görüntüleri — otobüs içi canlı kamera.\n"
+            f"Canlı şehir kamera görüntüleri — sokaktan canlı kareler.\n"
             f"📅 {turkce_tarih(now)}, saat {now.strftime('%H:%M')}.\n"
             f"{weather_line}"
             f"\n👇 Sizce burası neresi? Tahminini yorumlara yaz!\n"
@@ -387,7 +574,8 @@ class AnkaraShortsProducer:
     def _add_cta_overlays(self, clip_path: str) -> str:
         """AudioMixer'dan sonra: 15-18s "ABONE OL" + 30-40s "YORUM YAZ" CTA.
 
-        DejaVu Sans Bold emoji desteklemediği için ASCII karakterler (▶ ▼).
+        Türkçe karakterler GERÇEK haliyle (SİZCE BURASI NERESİ) — DejaVu Sans Bold
+        Türkçe gliflerini render eder. ▶ ▼ geometrik şekilleri de desteklenir.
         Renkli kutu + büyük yazı + zaman-bazlı enable filter.
         """
         clip = Path(clip_path)
@@ -404,7 +592,7 @@ class AnkaraShortsProducer:
             f"box=1:boxcolor=red@0.9:boxborderw=24:"
             f"shadowx=3:shadowy=3:shadowcolor=black@0.8:"
             f"enable='between(t\\,15\\,18)',"
-            f"drawtext=fontfile={font}:text='▼ SIZCE BURASI NERESI?':"
+            f"drawtext=fontfile={font}:text='▼ SİZCE BURASI NERESİ?':"
             f"x=(w-text_w)/2:y=h*0.15:fontsize=54:fontcolor=black:"
             f"box=1:boxcolor=yellow@0.95:boxborderw=18:"
             f"shadowx=2:shadowy=2:shadowcolor=black@0.6:"
@@ -446,55 +634,125 @@ class AnkaraShortsProducer:
 
     # ── Ana akış ────────────────────────────────────────────────────────
 
-    def run_slot(self, do_upload: bool = True):
-        """Tek slot — bir Shorts üret + upload."""
-        now = datetime.now()
-        self.log.info(f"╔══ Ankara Shorts slot başladı {now.strftime('%H:%M')} ══╗")
+    def _upload_clip(self, clip: str, metadata: dict, city: str,
+                     s: dict, do_upload: bool) -> bool:
+        """YouTube upload (veya kota dolu → kuyruk). Telegram bildirimi OPERATÖRE
+        (özel) gerçek şehir adıyla gider; PUBLIC metadata anonim kalır."""
+        if not do_upload:
+            self.log.info("Upload atlandı (--no-upload)")
+            s["last_status"] = "produced_only"
+            s["success"] += 1
+            return True
+        try:
+            uploader = YouTubeUploader(self.config)
+            if uploader.check_quota():
+                result = uploader.upload(clip, metadata)
+                youtube_url = result.get("url", "")
+                self.log.info(f"✓ Yüklendi: {youtube_url}")
+                s["success"] += 1
+                s["last_status"] = "uploaded"
+                s["last_youtube_url"] = youtube_url
+                try:
+                    self.notifier.video_uploaded(
+                        city, metadata["title"], youtube_url, city)
+                except Exception:
+                    pass
+                return True
+            self.log.info("Kota dolu → kuyruğa")
+            uploader.add_to_queue(clip, metadata)
+            s["queued"] += 1
+            s["last_status"] = "queued"
+            try:
+                self.notifier.quota_warning(city)
+            except Exception:
+                pass
+            return True
+        except Exception as e:
+            self.log.error(f"Upload hatası, kuyruğa: {e}")
+            s["last_error"] = str(e)[:200]
+            try:
+                uploader = YouTubeUploader(self.config)
+                uploader.add_to_queue(clip, metadata)
+                s["queued"] += 1
+                s["last_status"] = "queued"
+                return True
+            except Exception:
+                s["last_status"] = "upload_fail"
+                s["failed"] += 1
+                return False
 
-        s = self.stats["ankara"]
+    def run_slot(self, do_upload: bool = True, force_city: Optional[str] = None):
+        """Tek slot — BİR şehir seç (Ankara EGO veya havuz şehri), Shorts üret + upload.
+        Şehir adı PUBLIC içerikte gizli; içerik üretimi şehre göre değişir."""
+        now = datetime.now()
+
+        # 1. Şehir seç (anti-repeat). --city ile zorlanabilir.
+        city = force_city or self._pick_city()
+        if not city:
+            self.log.warning(
+                "Üretilecek şehir yok (havuz boş + Ankara hazır değil) → slot atlandı")
+            return
+        self.log.info(
+            f"╔══ Shorts slot başladı {now.strftime('%H:%M')} — şehir: {city} ══╗")
+
+        s = self._bucket(city)
         s["attempts"] += 1
         s["last_run"] = now.isoformat()
 
-        weather = get_weather("ankara", api_key=self.owm_key)
+        # 2. Hava durumu (best-effort, şehir bazlı)
+        weather = (get_weather("ankara", api_key=self.owm_key) if city == "Ankara"
+                   else self._city_weather(city))
         if weather:
             self.log.info(
-                f"Hava: {weather['emoji']} {weather['temp']}°C "
-                f"{weather['condition']}")
+                f"Hava: {weather['emoji']} {weather['temp']}°C {weather['condition']}")
 
-        result = self.produce_ankara(weather)
+        # 3. Üret — Ankara → EGO otobüs, diğer → havuz kamerası
+        dedup_kind = dedup_key = None
+        if city == "Ankara":
+            result = self.produce_ankara(weather)
+            if result:
+                _, dedup_key = result
+                dedup_kind = "plate"
+                s["last_plate"] = dedup_key
+                s["last_batch"] = "direct_ego"
+                s["last_camera"] = "EGO otobüs"
+        else:
+            cams = self._pool_cities().get(city, [])
+            result = self.produce_pool_city(city, cams, weather)
+            if result:
+                _, dedup_key = result
+                dedup_kind = "cam"
+                s["last_batch"] = "pool"
+                s["last_camera"] = dedup_key
+
         if not result:
-            self.log.warning("Üretim başarısız → slot atlanıyor")
+            self.log.warning(f"{city}: üretim başarısız → slot atlanıyor")
             s["last_status"] = "produce_fail"
             s["failed"] += 1
+            self._record_city(city)   # boş şehri anti-repeat'e ekle (sıradakini dene)
             self._save_stats()
             return
+        clip = result[0]
 
-        clip, plate = result
-        s["last_plate"] = plate
-        s["last_batch"] = "direct_ego"
-
-        # Metadata
+        # 4. Metadata — ŞEHİR GİZLİ (generic "Türkiye", "Sizce burası neresi?")
         metadata = self._build_metadata(now, weather)
         self.log.info(f"Başlık: {metadata['title']}")
 
-        # Audio mix (TTS + ambient + sağ üst hava drawtext)
+        # 5. Audio mix (TTS + ambient + sağ üst hava drawtext — Türkçe karakterli)
         try:
             clip = self.mixer.add_audio(
-                clip, metadata, location="Türkiye",
-                weather=weather, duration=40,
-            )
-            self.log.info("Ses karıştırıldı (TTS + 2 CTA cümlesi dahil)")
+                clip, metadata, location="Türkiye", weather=weather, duration=40)
+            self.log.info("Ses karıştırıldı (TTS dahil)")
         except Exception as e:
             self.log.warning(f"Ses ekleme hatası (orjinal video ile devam): {e}")
 
-        # CTA overlay (15-18s ABONE OL + 30-40s SIZCE BURASI NERESI)
+        # 6. CTA overlay (15-18s ABONE OL + 30s+ SİZCE BURASI NERESİ)
         try:
             clip = self._add_cta_overlays(clip)
         except Exception as e:
             self.log.warning(f"CTA overlay hatası (orjinal ile devam): {e}")
 
-        # TikTok için: video + caption'ı Telegram'a gönder (upload ÖNCESİ —
-        # YouTubeUploader lokal klibi siler, o yüzden burada gönderiyoruz).
+        # 7. TikTok için: video + caption Telegram'a (upload ÖNCESİ — uploader siler)
         try:
             tiktok_caption = self._build_tiktok_caption(now, weather)
             if self.notifier.send_video(clip, tiktok_caption):
@@ -504,64 +762,24 @@ class AnkaraShortsProducer:
         except Exception as e:
             self.log.warning(f"TikTok Telegram gönderim hatası: {e}")
 
-        # Upload
-        upload_success = False
-        if not do_upload:
-            self.log.info("Upload atlandı (--no-upload)")
-            s["last_status"] = "produced_only"
-            s["success"] += 1
-            upload_success = True
-        else:
-            try:
-                uploader = YouTubeUploader(self.config)
-                if uploader.check_quota():
-                    result = uploader.upload(clip, metadata)
-                    youtube_url = result.get("url", "")
-                    self.log.info(f"✓ Yüklendi: {youtube_url}")
-                    s["success"] += 1
-                    s["last_status"] = "uploaded"
-                    s["last_youtube_url"] = youtube_url
-                    upload_success = True
-                    try:
-                        self.notifier.video_uploaded(
-                            "ankara", metadata["title"], youtube_url, "Ankara")
-                    except Exception:
-                        pass
-                else:
-                    self.log.info("Kota dolu → kuyruğa")
-                    uploader.add_to_queue(clip, metadata)
-                    s["queued"] += 1
-                    s["last_status"] = "queued"
-                    upload_success = True
-                    try:
-                        self.notifier.quota_warning("Ankara")
-                    except Exception:
-                        pass
-            except Exception as e:
-                self.log.error(f"Upload hatası, kuyruğa: {e}")
+        # 8. Upload
+        upload_success = self._upload_clip(clip, metadata, city, s, do_upload)
+
+        # 9. Dedup kaydı (başarılı/kuyrukta) + şehir anti-repeat
+        if upload_success and dedup_key:
+            if dedup_kind == "plate":
                 try:
-                    uploader = YouTubeUploader(self.config)
-                    uploader.add_to_queue(clip, metadata)
-                    s["queued"] += 1
-                    s["last_status"] = "queued"
-                    upload_success = True
-                except Exception:
-                    s["last_status"] = "upload_fail"
-                    s["failed"] += 1
-                s["last_error"] = str(e)[:200]
-
-        # Plaka kaydet (başarılı veya kuyrukta)
-        if plate and upload_success:
-            try:
-                self._record_plate(plate)
-                used = self._recent_plates()
-                s["unique_plates_24h"] = len(used)
-                self.log.info(
-                    f"Plaka kaydedildi: {plate} "
-                    f"(son 24h: {len(used)} farklı)")
-            except Exception as e:
-                self.log.warning(f"Plaka kaydı hatası: {e}")
-
+                    self._record_plate(dedup_key)
+                    used = self._recent_plates()
+                    s["unique_plates_24h"] = len(used)
+                    self.log.info(
+                        f"Plaka kaydedildi: {dedup_key} (son 24h: {len(used)} farklı)")
+                except Exception as e:
+                    self.log.warning(f"Plaka kaydı hatası: {e}")
+            elif dedup_kind == "cam":
+                self._record_cam(dedup_key)
+                self.log.info(f"Kamera dedup kaydedildi ({CAM_DEDUP_HOURS}h)")
+        self._record_city(city)
         self._save_stats()
         self.log.info("╚══ slot bitti ══╝")
 
@@ -586,16 +804,20 @@ class AnkaraShortsProducer:
         self.log.info(
             f"⏰ Zamanlayıcı: Her saat :{ankara_minute:02d} "
             f"(aktif saatler: {active_str})")
+        try:
+            pc = list(self._pool_cities().keys())
+        except Exception:
+            pc = []
         self.log.info(
-            "ℹ Stream'den BAĞIMSIZ servis — direct EGO HLS, YOLO subprocess")
+            "ℹ Stream'den BAĞIMSIZ servis — ZORUNLU YOLO (fail-closed), şehir gizli")
+        self.log.info(
+            f"ℹ ÇOK ŞEHİRLİ: her slot 1 şehir — Ankara (EGO) + havuz {pc}")
         self.log.info(
             "ℹ Algoritma dostu: 5 random başlık, hashtag, görsel+işitsel CTA")
-        self.log.info(
-            "ℹ İstanbul/Çorum/Konya: YouTube upload YOK, sadece stream içeriği")
 
         try:
             self.notifier.send(
-                "🎬 Ankara Shorts servisi başladı (stream'den bağımsız)")
+                "🎬 Çok şehirli Shorts servisi başladı (stream'den bağımsız)")
         except Exception:
             pass
 
@@ -619,13 +841,15 @@ def main():
                         help="Test: bir kez şimdi çalıştır")
     parser.add_argument("--no-upload", action="store_true",
                         help="--once ile: YouTube'a yükleme")
+    parser.add_argument("--city", default=None,
+                        help="--once ile: belirli şehri zorla (ör. İstanbul, Kayseri, Ankara)")
     parser.add_argument("--config", default="config.yaml")
     args = parser.parse_args()
 
     h = AnkaraShortsProducer(config_path=args.config)
 
     if args.once:
-        h.run_slot(do_upload=not args.no_upload)
+        h.run_slot(do_upload=not args.no_upload, force_city=args.city)
     elif args.daemon:
         def _sig(s, f):
             h.log.info(f"Sinyal {s} alındı, kapanıyor")

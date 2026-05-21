@@ -1,0 +1,498 @@
+[
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Çeşmeler",
+  "slug": "tekir-cesmeler",
+  "embed_id": "3064",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Pist",
+  "slug": "tekir-pist",
+  "embed_id": "3085",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Cumhuriyet Meydanı 2",
+  "slug": "cumhuriyet-meydani-2",
+  "embed_id": "4337",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Gondol Alt",
+  "slug": "tekir-gondol-alt",
+  "embed_id": "3084",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Erciyes",
+  "slug": "tekir-erciyes",
+  "embed_id": "3065",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hisarcık Divan Üst",
+  "slug": "hisarcik-divan-ust",
+  "embed_id": "4329",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Otopark",
+  "slug": "tekir-otopark",
+  "embed_id": "3068",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Cumhuriyet Meydanı Üst",
+  "slug": "cumhuriyet-meydani-ust",
+  "embed_id": "4370",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Karakulak Üst",
+  "slug": "hacilar-karakulak-ust",
+  "embed_id": "3080",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Lifos Üst",
+  "slug": "hacilar-lifos-ust",
+  "embed_id": "3077",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Talas Osmanlı Sokağı",
+  "slug": "talas-osmanli-sokagi",
+  "embed_id": "4339",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Buz Pisti",
+  "slug": "buz-pisti",
+  "embed_id": "3087",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hisarcık Keven Alt",
+  "slug": "hisarcik-keven-alt",
+  "embed_id": "3082",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Kızak Alanı",
+  "slug": "hacilar-kizak-alani",
+  "embed_id": "4356",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mehmet Şafak Yaşam Parkı",
+  "slug": "mehmet-safak-yasam-parki",
+  "embed_id": "4335",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Develi Kültepe Üst",
+  "slug": "develi-kultepe-ust",
+  "embed_id": "4351",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Sivas Caddesi",
+  "slug": "sivas-caddesi",
+  "embed_id": "3051",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Otopark",
+  "slug": "hacilar-otopark",
+  "embed_id": "4357",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Bünyan Meydan",
+  "slug": "bunyan-meydan",
+  "embed_id": "4398",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Develi Kaniş Üst",
+  "slug": "develi-kanis-ust",
+  "embed_id": "4360",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Seyir Alanı 1",
+  "slug": "tekir-seyir-alani-1",
+  "embed_id": "4332",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hisarcık Kızak Alanı",
+  "slug": "hisarcik-kizak-alani",
+  "embed_id": "4326",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Ali Dağı 360 Kafe",
+  "slug": "ali-dagi-360-kafe",
+  "embed_id": "4363",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hulusi Akar Camii",
+  "slug": "hulusi-akar-camii",
+  "embed_id": "4338",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Lifos Alt",
+  "slug": "hacilar-lifos-alt",
+  "embed_id": "3079",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Düvenönü 2",
+  "slug": "duvenonu-2",
+  "embed_id": "4362",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Erkilet Bulvarı",
+  "slug": "erkilet-bulvari",
+  "embed_id": "4346",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tekir Seyir Alanı 2",
+  "slug": "tekir-seyir-alani-2",
+  "embed_id": "4333",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Yahyalı Meydan 1",
+  "slug": "yahyali-meydan-1",
+  "embed_id": "4381",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hisarcık Otopark",
+  "slug": "hisarcik-otopark",
+  "embed_id": "4353",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Düvenönü 1",
+  "slug": "duvenonu-1",
+  "embed_id": "4361",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Osman Kavuncu Bulvarı",
+  "slug": "osman-kavuncu-bulvari",
+  "embed_id": "4347",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Develi Kaniş Alt",
+  "slug": "develi-kanis-alt",
+  "embed_id": "3054",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Kale İçi",
+  "slug": "kale-ici",
+  "embed_id": "4098",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Yoğunburç",
+  "slug": "yogunburc",
+  "embed_id": "4345",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Yolu",
+  "slug": "hacilar-yolu",
+  "embed_id": "4364",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Sivas Caddesi Üst",
+  "slug": "sivas-caddesi-ust",
+  "embed_id": "4355",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Tuna Parkı",
+  "slug": "tuna-parki",
+  "embed_id": "4340",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mimarsinan Parkı Üst",
+  "slug": "mimarsinan-parki-ust",
+  "embed_id": "4371",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Emirgan Üst Geçit",
+  "slug": "emirgan-ust-gecit",
+  "embed_id": "4394",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Yukarı Talas 2",
+  "slug": "yukari-talas-2",
+  "embed_id": "3075",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Sukaypark",
+  "slug": "sukaypark",
+  "embed_id": "4396",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Valilik Üst",
+  "slug": "valilik-ust",
+  "embed_id": "4372",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Yukarı Talas 1",
+  "slug": "yukari-talas-1",
+  "embed_id": "3076",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Yahyalı Kayseri Caddesi 1",
+  "slug": "yahyali-kayseri-caddesi-1",
+  "embed_id": "4374",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Melikgazi",
+  "slug": "melikgazi",
+  "embed_id": "4343",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Erciyes Bulvarı 2",
+  "slug": "erciyes-bulvari-2",
+  "embed_id": "4348",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Recep Tayyip Erdoğan Millet Bahçesi Festival Alanı",
+  "slug": "recep-tayyip-erdogan-millet-bahcesi-festival-alani",
+  "embed_id": "4401",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Seyyid Burhaneddin Hazretleri Türbesi",
+  "slug": "seyyid-burhaneddin-hazretleri-turbesi",
+  "embed_id": "4336",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Yahyalı Kayseri Caddesi 2",
+  "slug": "yahyali-kayseri-caddesi-2",
+  "embed_id": "4375",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Sanayi Odası",
+  "slug": "sanayi-odasi",
+  "embed_id": "4342",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hunat Üst",
+  "slug": "hunat-ust",
+  "embed_id": "4373",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mustafa Kemal Paşa Bulvarı 1",
+  "slug": "mustafa-kemal-pasa-bulvari-1",
+  "embed_id": "3053",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hayvanat Bahçesi 1",
+  "slug": "hayvanat-bahcesi-1",
+  "embed_id": "4092",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hacılar Park",
+  "slug": "hacilar-park",
+  "embed_id": "4365",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mustafa Kemal Paşa Bulvarı 3",
+  "slug": "mustafa-kemal-pasa-bulvari-3",
+  "embed_id": "4341",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hayvanat Bahçesi 2",
+  "slug": "hayvanat-bahcesi-2",
+  "embed_id": "4093",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Hayvanat Bahçesi 3",
+  "slug": "hayvanat-bahcesi-3",
+  "embed_id": "4094",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Şehit Bülent Doğan Üstgeçidi 2",
+  "slug": "sehit-bulent-dogan-ustgecidi-2",
+  "embed_id": "4101",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mimarsinan 3",
+  "slug": "mimarsinan-3",
+  "embed_id": "4408",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mimarsinan 2",
+  "slug": "mimarsinan-2",
+  "embed_id": "4407",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ },
+ {
+  "city": "Kayseri",
+  "name": "Kayseri Mimarsinan 1",
+  "slug": "mimarsinan-1",
+  "embed_id": "4406",
+  "type": "kayseri_embed",
+  "source": "tv.kayseri"
+ }
+]

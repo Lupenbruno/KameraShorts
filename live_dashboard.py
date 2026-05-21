@@ -12,9 +12,74 @@ import subprocess
 import threading
 import time
 from collections import deque
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
+import os
+import base64
+import hmac
+
+
+# ─── Dashboard erişim kimliği (HTTP Basic Auth) ─────────────────────────────
+def _load_dash_creds():
+    """DASH_USER/DASH_PASS: önce ortam değişkeni, yoksa secrets.env'den oku."""
+    u = os.environ.get("DASH_USER", "")
+    p = os.environ.get("DASH_PASS", "")
+    if not (u and p):
+        try:
+            for _ln in Path("/etc/kamerashorts/secrets.env").read_text(
+                    encoding="utf-8", errors="ignore").splitlines():
+                _ln = _ln.strip()
+                if _ln.startswith("DASH_USER=") and not u:
+                    u = _ln.split("=", 1)[1].strip().strip('"').strip("'")
+                elif _ln.startswith("DASH_PASS=") and not p:
+                    p = _ln.split("=", 1)[1].strip().strip('"').strip("'")
+        except Exception:
+            pass
+    return u, p
+
+
+DASH_USER, DASH_PASS = _load_dash_creds()
+_AUTH_ENABLED = bool(DASH_USER and DASH_PASS)
+_EXPECTED_AUTH = (
+    "Basic " + base64.b64encode(f"{DASH_USER}:{DASH_PASS}".encode()).decode()
+    if _AUTH_ENABLED else ""
+)
+
+# ─── IP allowlist: şifre bir kez doğru girilince o IP'den bir daha sorulmaz ───
+_ALLOWLIST_PATH = "/opt/KameraShorts/data/dash_allowlist.json"
+_allowlist_lock = threading.Lock()
+
+
+def _load_allowlist() -> dict:
+    try:
+        with open(_ALLOWLIST_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+_ALLOWLIST = _load_allowlist()  # {ip: eklendiği epoch}
+
+
+def _ip_allowed(ip: str) -> bool:
+    return bool(ip) and ip in _ALLOWLIST
+
+
+def _ip_allow_add(ip: str):
+    if not ip:
+        return
+    with _allowlist_lock:
+        _ALLOWLIST[ip] = int(time.time())
+        try:
+            os.makedirs(os.path.dirname(_ALLOWLIST_PATH), exist_ok=True)
+            tmp = _ALLOWLIST_PATH + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(_ALLOWLIST, f)
+            os.replace(tmp, _ALLOWLIST_PATH)
+        except Exception:
+            pass
+
 
 # ─── State ──────────────────────────────────────────────────────────────────
 
@@ -131,6 +196,15 @@ class StreamState:
             "last_finish": "",
         }
 
+        # ── Kamera havuzu (camera_pool.json) ──────────────────────────────
+        self._camera_pool: dict = {"total": 0, "active": 0, "mobile": 0,
+                                   "city_count": 0, "cities": [], "updated": ""}
+        self._camera_pool_mtime: float = 0
+
+        # ── Pool rotasyon (hangi şehir/kamera seçildi — log + camera_pool eşleme) ──
+        self._cam2city: dict = {}      # {kamera adı: şehir}
+        self._pool_picks: list = []    # son seçilenler [{city, camera, ts}]
+
     def poll(self):
         path = Path(self.log_path)
         if not path.exists():
@@ -148,9 +222,11 @@ class StreamState:
 
         # Log dosyasını oku (sadece yeni satırlar varsa)
         try:
-            size = path.stat().st_size
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
+            with open(path, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - 600000))  # sadece son ~600KB (56MB değil!)
+                lines = f.read().decode("utf-8", errors="replace").splitlines(keepends=True)
         except Exception:
             return
 
@@ -186,6 +262,7 @@ class StreamState:
         recent_logs     = []
         batch_queued    = 0
         speed_history   = list(self.speed_history)
+        pool_picks      = []   # bu tail'daki collector başlangıçları (pool rotasyon)
 
         # Yeni state lokalleri
         current_action  = "—"
@@ -370,6 +447,7 @@ class StreamState:
                 city_progress[city] = {
                     "dur": 0, "target": target, "status": "indiriliyor", "pct": 0,
                 }
+                pool_picks.append({"camera": m.group(1).strip(), "ts": ts[-8:]})
                 continue
 
             # ── Collector: ilerleme ───────────────────────────────────────
@@ -548,6 +626,19 @@ class StreamState:
         self.streaming_batch = streaming_batch
         self.building_batch_id = building_id
         self.city_progress   = city_progress
+        # Pool rotasyon: kamera→şehir eşle, ardışık tekrarı azalt, son 18
+        _picks = []
+        for _p in pool_picks:
+            _cam = _p["camera"]
+            if _cam.startswith("Ankara"):
+                _cty = "Ankara"
+            else:
+                _cty = self._cam2city.get(_cam) or (_cam.split(" ")[0] if _cam else "?")
+            if _picks and _picks[-1]["camera"] == _cam:
+                continue
+            _picks.append({"city": _cty, "camera": _cam, "ts": _p["ts"]})
+        if _picks:
+            self._pool_picks = _picks[-18:]
         self.batch_history   = batch_history[-10:]
         self.batch_queued    = batch_queued
         self.recent_logs     = deque(recent_logs[-80:], maxlen=80)
@@ -674,6 +765,11 @@ class StreamState:
                 "cpu_history": list(self._cpu_history),
                 "ram_history": list(self._ram_history),
                 "harvester_pipeline": self._harvester_pipeline,
+                "camera_pool": self._camera_pool,
+                "pool_rotation": {
+                    "picks": self._pool_picks,
+                    "onair": list(dict.fromkeys(p["city"] for p in self._pool_picks)),
+                },
             }
 
     def sample_resources(self):
@@ -787,6 +883,47 @@ class StreamState:
         except Exception as e:
             print(f"[uploads] Hata: {e}")
 
+    def sample_camera_pool(self):
+        """camera_pool.json'u oku (mtime cache) → şehir/kamera/aktif özeti."""
+        try:
+            from collections import Counter as _Counter
+            p = Path("/opt/KameraShorts/camera_pool.json")
+            if not p.exists():
+                return
+            mt = p.stat().st_mtime
+            if mt == self._camera_pool_mtime:
+                return
+            data = json.loads(p.read_text(encoding="utf-8"))
+            cams = data.get("cameras", [])
+            tot, act, mob = _Counter(), _Counter(), _Counter()
+            for c in cams:
+                n = c.get("count", 1)
+                city = c.get("city", "?")
+                tot[city] += n
+                st = c.get("status")
+                if st == "active":
+                    act[city] += n
+                elif st == "mobile":
+                    mob[city] += n
+            cities = [{"city": city, "total": tot[city],
+                       "active": act.get(city, 0), "mobile": mob.get(city, 0)}
+                      for city in sorted(tot, key=lambda x: -tot[x])]
+            snap = {
+                "total": sum(tot.values()), "active": sum(act.values()),
+                "mobile": sum(mob.values()), "city_count": len(tot),
+                "cities": cities, "updated": data.get("updated", ""),
+            }
+            c2c = {}
+            for _c in cams:
+                if _c.get("name"):
+                    c2c[_c["name"]] = _c.get("city", "?")
+            with self._lock:
+                self._camera_pool = snap
+                self._camera_pool_mtime = mt
+                self._cam2city = c2c
+        except Exception as e:
+            print(f"[campool] Hata: {e}")
+
     def sample_plates(self):
         """harvester_ankara_plates.json'dan son 24h plakalar."""
         try:
@@ -862,13 +999,14 @@ class StreamState:
             # Son "slot başladı" satırını bul
             slot_start_idx = -1
             for i in range(len(lines) - 1, -1, -1):
-                if "Ankara Shorts slot başladı" in lines[i]:
+                if "Shorts slot başladı" in lines[i]:
                     slot_start_idx = i
                     break
 
             pipe = {
                 "phase": "idle",
                 "slot_start": "",
+                "city": "",
                 "elapsed_s": 0,
                 "current_attempt": 0,
                 "total_candidates": 0,
@@ -894,13 +1032,23 @@ class StreamState:
             from datetime import datetime as _dt
 
             ts_re = _re.compile(r'^(\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}))')
-            start_re = _re.compile(r'Ankara Shorts slot başladı (\d{2}:\d{2})')
+            # Yeni çok-şehirli format: "Shorts slot başladı 22:46 — şehir: İstanbul"
+            start_re = _re.compile(r'Shorts slot başladı (\d{2}:\d{2}) — şehir: (.+?) ?══')
             weather_re = _re.compile(r'Hava: (.+)')
             ego_re = _re.compile(r"EGO'dan (\d+) aktif araç alındı")
             ego_old_re = _re.compile(r"EGO'dan (\d+) araç alındı")
+            # Ankara (EGO otobüs) deneme formatı: "1/68 → '06 FVL 168' (tip: X, hız: N km/h)"
             attempt_re = _re.compile(
                 r"(\d+)/(\d+) → '([^']+)' \(tip: ([^,]+), hız: (\d+) km/h\)"
             )
+            # Havuz şehri deneme formatı: "İstanbul 1/8 → Taksim Meydanı"
+            pool_attempt_re = _re.compile(
+                r"([A-ZİÇĞÖŞÜ][\wçğıöşüÇĞİÖŞÜ]+) (\d+)/(\d+) → (?!resolve)(.+?)\s*$"
+            )
+            pool_skip_re = _re.compile(r"\[(.+?)\] ön-eleme: karanlık")
+            pool_clip_re = _re.compile(r"✓ (.+?) klip hazır \((\d+)/(\d+) denendi\)")
+            pool_timeout_re = _re.compile(r"\[(.+?)\] (?:yakalama )?[Tt]imeout|ön-kare timeout")
+            pool_yoloelendi_re = _re.compile(r"\[(.+?)\] YOLO elendi")
             yolo_fail_re = _re.compile(r"\[(\S+)\] Ön YOLO: zemin/damper/karanlık")
             timeout_re = _re.compile(r"\[(\S+)\] Timeout")
             kayit_err_re = _re.compile(r"kayıt hata:")
@@ -928,8 +1076,9 @@ class StreamState:
                 m = start_re.search(ln)
                 if m:
                     pipe["slot_start"] = m.group(1)
+                    pipe["city"] = m.group(2).strip()
                     pipe["phase"] = "running"
-                    pipe["current_action"] = "Slot başladı"
+                    pipe["current_action"] = f"Slot başladı — {pipe['city']}"
                     current_stage = "init"
                     continue
                 m = weather_re.search(ln)
@@ -966,6 +1115,49 @@ class StreamState:
                     pipe["current_action"] = f"Aday {pipe['current_attempt']}/{pipe['total_candidates']}: {pipe['current_plate']} seçildi"
                     pipe["current_action_stage"] = "selected"
                     current_stage = "selected"
+                    continue
+                # ── Havuz şehri denemesi (İstanbul 1/8 → Taksim Meydanı) ──
+                m = pool_attempt_re.search(ln)
+                if m and "tip:" not in ln and "→" in ln:
+                    if pipe["current_plate"]:
+                        pipe["attempts_history"].append({
+                            "n": pipe["current_attempt"],
+                            "plate": pipe["current_plate"],
+                            "vtype": pipe["current_vtype"],
+                            "result": current_stage,
+                        })
+                    pipe["current_attempt"] = int(m.group(2))
+                    pipe["total_candidates"] = int(m.group(3))
+                    pipe["current_plate"] = m.group(4).strip()   # kamera adı
+                    pipe["current_vtype"] = m.group(1).strip()   # şehir
+                    pipe["current_speed"] = 0
+                    pipe["current_action"] = f"{m.group(1)} {pipe['current_attempt']}/{pipe['total_candidates']}: {pipe['current_plate']}"
+                    pipe["current_action_stage"] = "selected"
+                    current_stage = "selected"
+                    continue
+                m = pool_skip_re.search(ln)
+                if m:
+                    current_stage = "yolo_fail"
+                    pipe["current_action"] = "Ön-eleme: karanlık/boş — atlandı"
+                    pipe["current_action_stage"] = "yolo_fail"
+                    continue
+                m = pool_yoloelendi_re.search(ln)
+                if m:
+                    current_stage = "yolo_fail"
+                    pipe["current_action"] = "YOLO elendi — atlandı"
+                    pipe["current_action_stage"] = "yolo_fail"
+                    continue
+                m = pool_clip_re.search(ln)
+                if m:
+                    current_stage = "yolo_pass"
+                    pipe["current_plate"] = m.group(1).strip()
+                    pipe["current_action"] = f"✓ {m.group(1)} YOLO geçti, klip hazır"
+                    pipe["current_action_stage"] = "yolo_pass"
+                    continue
+                if pool_timeout_re.search(ln):
+                    current_stage = "timeout"
+                    pipe["current_action"] = "Yakalama timeout, sonraki"
+                    pipe["current_action_stage"] = "timeout"
                     continue
                 if "Relay renewal aktif" in ln:
                     pipe["current_action"] = f"HLS kayıt + relay TTL yenileme ({pipe['current_plate']})"
@@ -1609,7 +1801,7 @@ canvas.spark-canvas{width:100%;height:30px;display:block}
     </div>
 
     <div class="card hero-shorts">
-      <h2>📱 Sonraki Ankara Shorts</h2>
+      <h2>📱 Sonraki Shorts</h2>
       <div class="shorts-countdown" id="shorts-cd">—</div>
       <div class="shorts-meta" id="shorts-time">timer hazır değil</div>
       <div class="shorts-last">
@@ -1644,15 +1836,34 @@ canvas.spark-canvas{width:100%;height:30px;display:block}
     </div>
   </div>
 
-  <!-- 4 ŞEHİR BATCH PROGRESS -->
+  <!-- KAMERA HAVUZU -->
   <div class="card">
-    <h2>🌆 4 Şehir Batch İlerlemesi <span class="badge pill info"><span class="d"></span>aktif</span></h2>
+    <h2>📷 Kamera Havuzu <span class="badge pill info" id="cp-badge"><span class="d"></span>—</span></h2>
+    <div class="grid g3" style="margin-bottom:12px">
+      <div class="mcard"><div class="top"><span class="label">Toplam Kamera</span><span class="icon">📷</span></div><div class="value" id="cp-total">—</div><div class="sub">kayıtlı havuz</div></div>
+      <div class="mcard"><div class="top"><span class="label">Aktif (sabit)</span><span class="icon">✅</span></div><div class="value" id="cp-active">—</div><div class="sub">ffprobe doğrulandı</div></div>
+      <div class="mcard"><div class="top"><span class="label">Şehir</span><span class="icon">🏙️</span></div><div class="value" id="cp-cities">—</div><div class="sub" id="cp-mobile-sub">— mobil</div></div>
+    </div>
+    <div id="cp-citylist"></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px" id="cp-updated">—</div>
+  </div>
+
+  <!-- HAVUZ ROTASYONU -->
+  <div class="card">
+    <h2>🎲 Havuz Rotasyonu <span class="badge pill info" id="rot-onair"><span class="d"></span>—</span></h2>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Şu an dönen şehirler + son seçilen kameralar (random)</div>
+    <div id="rot-picks"></div>
+  </div>
+
+  <!-- AKTİF BATCH — TRANSCODE AŞAMASI -->
+  <div class="card">
+    <h2>🎬 Aktif Batch — Transcode Aşaması <span class="badge pill info" id="batch-stage"><span class="d"></span>—</span></h2>
     <div id="cities"></div>
   </div>
 
   <!-- ANKARA PIPELINE (Shorts üretim aşaması) -->
   <div class="card ap-card">
-    <h2>🚌 Ankara Shorts Pipeline <span class="badge pill muted" id="ap-phase"><span class="d"></span>—</span></h2>
+    <h2>🎬 Şehir Shorts Pipeline <span class="badge pill muted" id="ap-phase"><span class="d"></span>—</span></h2>
     <div class="ap-row">
       <div class="ap-current">
         <div class="ap-action" id="ap-action">Sonraki saati bekliyor</div>
@@ -1726,7 +1937,7 @@ canvas.spark-canvas{width:100%;height:30px;display:block}
 
   <!-- PLATE CHIPS + EVENTS + LOGS -->
   <div class="card">
-    <h2>🚌 Ankara Plakaları — Son 24h (<span id="plate-count">0</span> farklı)</h2>
+    <h2>🚌 Ankara EGO Otobüs Plakaları — Son 24h (<span id="plate-count">0</span> farklı)</h2>
     <div class="plates" id="plates"></div>
   </div>
 
@@ -1942,6 +2153,48 @@ async function refresh(){
     $('shorts-last-url').textContent = `▶ izle (${ru.time}, ${ageStr(ru.age_sec)} önce)`;
   }
 
+  // KAMERA HAVUZU
+  const cpool = d.camera_pool || {};
+  if ($('cp-total')) {
+    $('cp-total').textContent = fmt(cpool.total||0);
+    $('cp-active').textContent = fmt(cpool.active||0);
+    $('cp-cities').textContent = cpool.city_count||0;
+    $('cp-mobile-sub').textContent = fmt(cpool.mobile||0) + ' mobil';
+    $('cp-badge').innerHTML = `<span class="d"></span>${cpool.city_count||0} şehir · ${fmt(cpool.total||0)} kamera`;
+    let cph = '';
+    for (const c of (cpool.cities||[])) {
+      const act = c.active||0, tot = c.total||0, mob = c.mobile||0;
+      const denom = tot || 1, pct = Math.round((act+mob)/denom*100);
+      const badge = mob ? `<span class="pill info"><span class="d"></span>${fmt(mob)} mobil</span>`
+        : pillHTML(`${act}/${tot} aktif`, (tot>0&&act===tot)?'ok':(act>0?'warn':'bad'));
+      cph += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+        <span style="width:96px;font-weight:600">${c.city}</span>
+        <span style="flex:1;height:6px;background:var(--card2);border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${mob?'#6366f1':'#22c55e'}"></span></span>
+        ${badge}</div>`;
+    }
+    $('cp-citylist').innerHTML = cph || '<div class=empty>havuz boş</div>';
+    $('cp-updated').textContent = 'Güncellendi: ' + (cpool.updated||'—');
+  }
+
+  // HAVUZ ROTASYONU
+  const poolRot = d.pool_rotation || {};
+  if ($('rot-onair')) {
+    const prOnair = poolRot.onair || [];
+    $('rot-onair').innerHTML = `<span class="d"></span>${prOnair.length} şehir on-air: ${prOnair.join(', ')||'—'}`;
+    const prPicks = (poolRot.picks||[]).slice().reverse();
+    let prHtml = '';
+    for (const pp of prPicks.slice(0,15)) {
+      prHtml += `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px">
+        <span style="width:92px;font-weight:700;color:#22c55e">${pp.city||'?'}</span>
+        <span style="flex:1">${pp.camera||''}</span>
+        <span style="color:var(--muted);font-size:11px">${pp.ts||''}</span></div>`;
+    }
+    $('rot-picks').innerHTML = prHtml || '<div class=empty>henüz seçim yok</div>';
+  }
+  if ($('batch-stage')) {
+    $('batch-stage').innerHTML = `<span class="d"></span>${(d.current_action||'—').substring(0,42)}`;
+  }
+
   // METRIC CARDS
   const yt = (d.tcp || {}).youtube || {};
   const kick = (d.tcp || {}).kick || {};
@@ -1959,14 +2212,13 @@ async function refresh(){
   const hCities = (d.harvester||{}).cities || {};
   const today = hCities.ankara ? hCities.ankara.success || 0 : 0;
   $('up-today').textContent = today;
-  $('up-today-sub').textContent = `Ankara • toplam denemeler ${hCities.ankara ? hCities.ankara.attempts : 0}`;
+  $('up-today-sub').textContent = (d.harvester_pipeline && d.harvester_pipeline.city) ? `Son slot: ${d.harvester_pipeline.city}` : 'Çok şehirli Shorts';
 
   // CITIES
   const cp = d.city_progress || {};
-  const cityOrder = ['Ankara','İstanbul','Çorum','Konya'];
   let chtml = '';
-  for (const cn of cityOrder) {
-    const ci = cp[cn] || {dur:0, target:240, status:'bekliyor', pct:0};
+  for (const cn of Object.keys(cp)) {
+    const ci = cp[cn] || {dur:0, target:60, status:'bekliyor', pct:0};
     let cls = 'gray';
     if (ci.status === 'tamamlandı' || ci.status === 'transcode ok') cls = 'green';
     else if (ci.status === 'indiriliyor') cls = 'blue';
@@ -1977,7 +2229,7 @@ async function refresh(){
       <div class="flag">${flag}</div>
       <div class="name">${cn}</div>
       <div class="bar"><div class="bar-fill ${cls}" style="width:${ci.pct||0}%"></div></div>
-      <div class="stats">${(ci.dur||0).toFixed(0)}/${(ci.target||240).toFixed(0)}s</div>
+      <div class="stats">${(ci.dur||0).toFixed(0)}/${(ci.target||60).toFixed(0)}s</div>
       <div class="status">${pillHTML(ci.status||'—', cls==='green'?'ok':cls==='red'?'bad':cls==='blue'?'info':'muted')}</div>
     </div>`;
   }
@@ -1999,7 +2251,7 @@ async function refresh(){
   $('ap-attempt').textContent = `${hp.current_attempt || 0}/${hp.total_candidates || 0}`;
   $('ap-plate').textContent = hp.current_plate || '—';
   $('ap-vtype').textContent = hp.current_vtype
-    ? `${hp.current_vtype} ${hp.current_speed||0}km/h` : '—';
+    ? (hp.current_speed ? `${hp.current_vtype} ${hp.current_speed}km/h` : hp.current_vtype) : '—';
   $('ap-weather').textContent = hp.weather || '—';
 
   // Aşamalar (stages)
@@ -2279,6 +2531,8 @@ _state: Optional[StreamState] = None
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if not self._authed():
+            return
         if self.path == "/api/status":
             body = json.dumps(_state.snapshot()).encode()
             self._respond(200, "application/json", body)
@@ -2320,6 +2574,8 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(404, "text/plain", b"Not found")
 
     def do_POST(self):
+        if not self._authed():
+            return
         if self.path == "/api/control":
             length = int(self.headers.get("Content-Length", 0))
             body   = self.rfile.read(length)
@@ -2380,6 +2636,26 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._respond(404, "text/plain", b"Not found")
 
+    def _authed(self) -> bool:
+        """Auth: (1) IP allowlist'te ise direkt geç. (2) Değilse şifre sor;
+        doğru şifre girilince o IP allowlist'e eklenir → bir daha sorulmaz."""
+        if not _AUTH_ENABLED:
+            return True
+        ip = self.client_address[0] if self.client_address else ""
+        if _ip_allowed(ip):
+            return True
+        hdr = self.headers.get("Authorization", "")
+        if hdr and hmac.compare_digest(hdr, _EXPECTED_AUTH):
+            _ip_allow_add(ip)   # bu IP'yi güvenilir listeye ekle
+            return True
+        self.send_response(401)
+        self.send_header("WWW-Authenticate",
+                         'Basic realm="KameraShorts Dashboard"')
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        return False
+
     def _respond(self, code, ct, body):
         self.send_response(code)
         self.send_header("Content-Type", ct)
@@ -2435,6 +2711,10 @@ def _poll_loop(interval: float = 3.0):
                 _state.sample_harvester_pipeline()
             except Exception as e:
                 print(f"[poll] harv_pipe hata: {e}")
+            try:
+                _state.sample_camera_pool()
+            except Exception as e:
+                print(f"[poll] campool hata: {e}")
         counter += 1
         time.sleep(interval)
 
@@ -2455,8 +2735,10 @@ def main():
     t = threading.Thread(target=_poll_loop, daemon=True)
     t.start()
 
-    # HTTP server
-    server = HTTPServer(("0.0.0.0", args.port), Handler)
+    # HTTP server — ThreadingHTTPServer: her bağlantı kendi thread'inde,
+    # yavaş dış client'lar birbirini bloklamaz (tek-thread "bağlanamıyorum" sorunu çözümü)
+    server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
+    server.daemon_threads = True
     print(f"Dashboard: http://0.0.0.0:{args.port}")
     print(f"Log: {args.log}")
     try:

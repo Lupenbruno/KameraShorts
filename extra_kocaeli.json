@@ -1,0 +1,332 @@
+[
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kartepe Zirve",
+  "slug": "kartepe-zirve",
+  "cid": "9",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kartepe Kuzuyayla Tabiat Parki",
+  "slug": "kartepe-kuzuyayla-tabiat-parki",
+  "cid": "3091",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kartepe Derbent Teleferik Istasyonu",
+  "slug": "kartepe-derbent-teleferik-istasyonu",
+  "cid": "3098",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kartepe Ormanya Leylek Yuvasi",
+  "slug": "kartepe-ormanya-leylek-yuvasi",
+  "cid": "3089",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Golcuk Eriklitepe Tabiat Parki",
+  "slug": "golcuk-eriklitepe-tabiat-parki",
+  "cid": "2031",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kartepe Ormanya",
+  "slug": "kartepe-ormanya",
+  "cid": "2085",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Cumhuriyet Bulvari1",
+  "slug": "izmit-cumhuriyet-bulvari1",
+  "cid": "2033",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Cumhuriyet Bulvari2",
+  "slug": "izmit-cumhuriyet-bulvari2",
+  "cid": "2035",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kocaeli Buyuksehir Belediyesi",
+  "slug": "kocaeli-buyuksehir-belediyesi",
+  "cid": "2073",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Kent Meydani",
+  "slug": "izmit-kent-meydani",
+  "cid": "21",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Gebze Coban Mustafa Pasa Camii",
+  "slug": "gebze-coban-mustafa-pasa-camii",
+  "cid": "3090",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Bagcesme",
+  "slug": "izmit-bagcesme",
+  "cid": "1028",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Milli Irade Meydani",
+  "slug": "izmit-milli-irade-meydani",
+  "cid": "3092",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kandira Kerpe Sahil",
+  "slug": "kandira-kerpe-sahil",
+  "cid": "1023",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Sekapark Ucurtma Tepesi",
+  "slug": "izmit-sekapark-ucurtma-tepesi",
+  "cid": "6",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Darica Dudayev Parki",
+  "slug": "darica-dudayev-parki",
+  "cid": "2084",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Basiskele Sahil",
+  "slug": "basiskele-sahil",
+  "cid": "1030",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kartepe Batti Cikti",
+  "slug": "kartepe-batti-cikti",
+  "cid": "1031",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Halkevi Ve Sahil",
+  "slug": "izmit-halkevi-ve-sahil",
+  "cid": "3",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Gebze Balkan Turkleri Parki",
+  "slug": "gebze-balkan-turkleri-parki",
+  "cid": "10",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Cumhuriyet Parki ",
+  "slug": "izmit-cumhuriyet-parki-",
+  "cid": "2077",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Sekapark Ucak Bolgesi",
+  "slug": "izmit-sekapark-ucak-bolgesi",
+  "cid": "8",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Gebze Eskihisar Millet Bahcesi",
+  "slug": "gebze-eskihisar-millet-bahcesi",
+  "cid": "20",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Golcuk Yazlik Kadirga Yaylasi",
+  "slug": "golcuk-yazlik-kadirga-yaylasi",
+  "cid": "2082",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Golcuk Anit Park",
+  "slug": "golcuk-anit-park",
+  "cid": "12",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Fevziye Camii",
+  "slug": "izmit-fevziye-camii",
+  "cid": "5",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Dilovasi Kent Meydani",
+  "slug": "dilovasi-kent-meydani",
+  "cid": "2083",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Korfez Kent Meydani",
+  "slug": "korfez-kent-meydani",
+  "cid": "14",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Izmit Saat Kulesi",
+  "slug": "izmit-saat-kulesi",
+  "cid": "2045",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ },
+ {
+  "city": "Kocaeli",
+  "name": "Kocaeli Kandira Cebeci Halk Plaji",
+  "slug": "kandira-cebeci-halk-plaji",
+  "cid": "2046",
+  "type": "kocaeli_tvkur",
+  "source": "kocaeliyiseyret",
+  "headers": {
+   "Referer": "https://player.tvkur.com/"
+  }
+ }
+]

@@ -86,6 +86,14 @@ MIN_SCORE        = 4    # Zemin/damper → 0, tek uzak araç yetmez; sokak sahne
 CONF_THRESH      = 0.30 # YOLO tespit eşiği (skorlama için)
 TTS_CONF_THRESH  = 0.70 # TTS'e giren tespit eşiği — %70 altı söylenmiyor
 
+# Hareket/aktivite skoru (YOLO "ne var"ı, hareket "ne kadar canlı"yı ölçer).
+# Ardışık kareler arası ortalama gri-piksel farkı: akan trafik/kalabalık yüksek,
+# boş/park/donuk düşük. Sadece DİJİTAL DONUK (≈0) reddedilir; sakin-ama-canlı
+# sahneler YOLO puanıyla geçer; aktif sahneler bonus alır (yanlış-ret riski yok).
+MOTION_FROZEN    = 1.0  # ardışık kare farkı bunun altı → donuk (reddet)
+MOTION_DIV       = 6    # hareket → bonus bölücü
+MOTION_BONUS_CAP = 3    # aktif sahneye en fazla +3 puan
+
 _model = None
 _available = None
 
@@ -116,7 +124,7 @@ def score_clip(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> t
     Skor < esik → elenecek | skor >= esik → geçecek
     """
     if not _load_model():
-        return 99, MIN_SCORE  # AI yoksa hep geçir
+        return 0, MIN_SCORE  # ZORUNLU YOLO: model yoksa REDDET (fail-closed)
 
     _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
     step = max(2, duration // 6)
@@ -269,61 +277,90 @@ def _sky_bonus(frame_path: str) -> int:
         return 0
 
 
-def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
-    """Stream URL'den 1 kare çek, YOLO + gökyüzü kontrolü yap.
+def _motion_score(frame_paths: list) -> float:
+    """Ardışık kareler arası ortalama gri-piksel farkı (0=donuk, yüksek=hareketli).
 
-    Kayıt başlamadan önce çağrılır — zemin/damper/karanlık ise False döner.
-    YOLO yoksa her zaman True döner (geçir).
-    ~3 saniye sürer.
+    Akan trafik / yürüyen kalabalık → yüksek; boş/park/donuk → düşük. Görüntüyü
+    160×90'a küçültüp |fark|.mean() alır. cv2 yoksa PIL+numpy; ikisi de yoksa
+    -1 (nötr — skorlamaya dokunmaz)."""
+    paths = [p for p in frame_paths if p and Path(p).exists()]
+    if len(paths) < 2:
+        return -1.0
+    try:
+        import numpy as np
+
+        def _gray(p):
+            try:
+                import cv2
+                img = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+                if img is None:
+                    raise ValueError("cv2 read None")
+                return cv2.resize(img, (160, 90)).astype("float32")
+            except Exception:
+                from PIL import Image
+                im = Image.open(p).convert("L").resize((160, 90))
+                return np.asarray(im, dtype="float32")
+
+        diffs = []
+        prev = _gray(paths[0])
+        for p in paths[1:]:
+            cur = _gray(p)
+            diffs.append(float(np.abs(cur - prev).mean()))
+            prev = cur
+        return (sum(diffs) / len(diffs)) if diffs else -1.0
+    except Exception:
+        return -1.0
+
+
+def quick_check_frame(frame_path: str, eq_shift: float = 0.0) -> bool:
+    """ÖNCEDEN ÇIKARILMIŞ tek kareyi değerlendir: CV (karanlık/boş) + YOLO + gökyüzü.
+
+    Referer-bilir ön-eleme yolu: kareyi çağıran taraf (generic_recorder) Referer'lı
+    çeker, biz sadece yerel dosyayı analiz ederiz — token'lı kameralarda da çalışır.
+    Bu bir ÖN-FİLTRE'dir; asıl ZORUNLU kapı analyze_clip. Bu yüzden YOLO yoksa /
+    kare yoksa True (geç) döner — fail-open.
+    eq_shift: kare eq=brightness filtresiyle çekildiyse parlaklık düzeltmesi (0 = ham).
     """
+    if not Path(frame_path).exists() or Path(frame_path).stat().st_size < 500:
+        return True  # kare yok → geç (asıl kayıt/analiz eler)
     if not _load_model():
         return True
+    cv_ok, _ = _cv_precheck(frame_path)
+    if not cv_ok:
+        log.info("Ön-eleme: CV karanlik/bos → ELENDI")
+        return False
+    try:
+        results = _model(frame_path, conf=CONF_THRESH, verbose=False)
+        score = 0
+        for r in results:
+            for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
+                score += OBJECT_SCORES.get(int(cls_id), 0)
+    except Exception:
+        return True
+    score += _sky_bonus(frame_path)
+    raw_brightness = max(0.0, _brightness(frame_path) - eq_shift)
+    dyn_min = _dynamic_min_score(raw_brightness)
+    passed = score >= dyn_min
+    log.info(f"Ön-eleme: {score}p (esik:{dyn_min}, parlaklik:{raw_brightness:.0f}) "
+             f"→ {'GECTI' if passed else 'ELENDI'}")
+    return passed
 
+
+def quick_check(stream_url: str, ffmpeg: str = "ffmpeg") -> bool:
+    """Stream URL'den 1 kare çek (Referer YOK — Ankara/EGO yolu), quick_check_frame'e
+    devret. Hata/kare-yok → True (geç). _VF_YOLO eq=brightness shift'i düzeltilir."""
     _NW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
-
     with tempfile.TemporaryDirectory() as tmp:
         frame = os.path.join(tmp, "qc.jpg")
         cmd = [
-            ffmpeg, "-y",
-            "-tls_verify", "0",
-            "-i", stream_url,
-            "-frames:v", "1",
-            "-ss", "2",
-            "-q:v", "4",
-            "-vf", _VF_YOLO,
-            frame
+            ffmpeg, "-y", "-tls_verify", "0", "-i", stream_url,
+            "-frames:v", "1", "-ss", "2", "-q:v", "4", "-vf", _VF_YOLO, frame,
         ]
         try:
             subprocess.run(cmd, capture_output=True, timeout=15, **_NW)
         except Exception:
             return True  # timeout → geçir, asıl kayıtta anlaşılır
-
-        if not Path(frame).exists() or Path(frame).stat().st_size < 500:
-            return True  # kare alınamadı → geçir
-
-        cv_ok, _ = _cv_precheck(frame)
-        if not cv_ok:
-            log.info("CV eledi karanlik/bos ELENDI")
-            return False
-
-        try:
-            results = _model(frame, conf=CONF_THRESH, verbose=False)
-            score = 0
-            for r in results:
-                for cls_id in (r.boxes.cls.tolist() if r.boxes else []):
-                    score += OBJECT_SCORES.get(int(cls_id), 0)
-        except Exception:
-            return True
-
-        # Gökyüzü görünüyorsa kamera açısı doğru → bonus puan
-        score += _sky_bonus(frame)
-        # eq=brightness=0.05 filtresi ~13 birim şişiriyor → geri al → gerçek parlaklık
-        raw_brightness = max(0.0, _brightness(frame) - 13.0)
-        dyn_min = _dynamic_min_score(raw_brightness)
-
-    passed = score >= dyn_min
-    log.info(f"Ön kontrol: {score}p (esik:{dyn_min}, parlaklik:{raw_brightness:.0f}) → {'GECTI' if passed else 'ELENDI'}")
-    return passed
+        return quick_check_frame(frame, eq_shift=13.0)
 
 
 def is_interesting(video_path: str, ffmpeg: str = "ffmpeg", duration: int = 30) -> bool:
@@ -406,6 +443,7 @@ def analyze_clip(video_path, ffmpeg="ffmpeg", duration=30):
     best_score = -1
     best_t = timestamps[len(timestamps)//2]
     model_ok = _load_model()
+    motion_frames = []   # hareket skoru için tüm çıkarılan kareler
 
     with _tmp.TemporaryDirectory() as tmp:
         bright_frame = os.path.join(tmp, "bright.jpg")
@@ -428,6 +466,7 @@ def analyze_clip(video_path, ffmpeg="ffmpeg", duration=30):
                 continue
             if not Path(frame).exists():
                 continue
+            motion_frames.append(frame)   # donuk/hareket ölçümü için (cv/yolo'dan bağımsız)
             cv_ok, _ = _cv_precheck(frame)
             if not cv_ok:
                 continue
@@ -445,10 +484,25 @@ def analyze_clip(video_path, ffmpeg="ffmpeg", duration=30):
                 best_score = frame_score
                 best_t = t
 
+        # Hareket/aktivite (kareler hala mevcutken hesapla). YOLO "ne var"ı,
+        # hareket "ne kadar canlı"yı verir → birlikte daha iyi "ilginç" sinyali.
+        motion = _motion_score(motion_frames)
+
+    motion_note = ""
+    if motion >= 0:
+        if motion < MOTION_FROZEN:
+            total = 0          # dijital donuk → reddet
+            motion_note = " hareket={:.1f}(DONUK→0)".format(motion)
+        else:
+            bonus = min(MOTION_BONUS_CAP, int(motion / MOTION_DIV))
+            total += bonus     # aktif sahneye bonus (sakin sahne 0 bonus, ceza yok)
+            motion_note = " hareket={:.1f}(+{})".format(motion, bonus)
+
     dyn_min = _dynamic_min_score(first_brightness)
     if not model_ok:
-        total = 99
-    log.info("analyze_clip: skor={} parlaklik={:.0f} esik={}".format(total,first_brightness,dyn_min))
+        total = 0   # ZORUNLU YOLO: model yüklenemedi → REDDET (fail-closed)
+    log.info("analyze_clip: skor={} parlaklik={:.0f} esik={}{}".format(
+        total,first_brightness,dyn_min,motion_note))
 
     thumb_path = str(Path(video_path).with_suffix(".jpg"))
     vf_t = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2"

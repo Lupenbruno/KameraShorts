@@ -33,7 +33,9 @@ class AudioMixer:
     def _weather_drawtext(self, weather: dict, city: str) -> str:
         """Sağ üst köşe için FFmpeg drawtext filtresi üret.
 
-        Örnek çıktı: Ankara  |  Acik  22C
+        Örnek çıktı: Türkiye  |  Açık  22C
+        Türkçe karakterler GERÇEK haliyle yazılır — DejaVu Sans Bold tüm Türkçe
+        gliflerini (ç ğ ı ş İ ö ü) render eder, ASCII'ye düşürmeye gerek YOK.
         Emoji kullanmıyoruz — FFmpeg font desteği kısıtlı.
         """
         if not weather:
@@ -42,12 +44,12 @@ class AudioMixer:
         cond = weather["condition"]          # "az bulutlu", "açık" vb.
         city_short = city.split()[0]         # "Çorum Merkez" → "Çorum"
 
-        # Türkçe karakter sorununu önlemek için basit ASCII'ye dönüştür
-        tr_map = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosucgiosu")
-        cond_safe = cond.translate(tr_map)
-        city_safe = city_short.translate(tr_map)
-
-        text = f"{city_safe}  |  {cond_safe}  {temp}C"
+        # Türkçe AYNEN korunur. Sadece drawtext'i bozabilecek özel karakterleri
+        # escape'liyoruz: ters bölü, iki nokta (filtre ayıracı) ve tek tırnak.
+        text = f"{city_short}  |  {cond}  {temp}C"
+        text = (text.replace("\\", "\\\\")
+                    .replace(":", "\\:")
+                    .replace("'", "’"))   # ' → tipografik ’ (filtre güvenli)
         font = FONT_PATH if Path(FONT_PATH).exists() else "DejaVuSans-Bold"
 
         return (
@@ -63,19 +65,22 @@ class AudioMixer:
         """Videoya ambient + TTS sesi ve isteğe bağlı hava durumu overlay'i ekle."""
         city = metadata.get("city", location.split(",")[-1].strip())
 
-        # TTS metni — hava durumunu da okuyoruz
+        # TTS metni. Producer tam metni (tarih + hava + CTA, DOĞRU sırada)
+        # tts_text içinde verdiyse OLDUĞU GİBİ kullan — hava durumunu TEKRAR
+        # EKLEME. (Önceki bug: hava hem _build_metadata'da hem burada ekleniyordu;
+        # ses "...abone olun!" CTA'sından SONRA havayı ikinci kez okuyordu.)
+        # Hava'yı yalnızca tts_text YOKSA (fallback: başlıktan türetme) ekle.
         if metadata.get("tts_text"):
             tts_text = metadata["tts_text"]
         else:
             title = metadata.get("title", "")
             tts_text = title.replace("#Shorts", "").replace(" - ", ". ").strip()
-
-        if weather:
-            tts_text += f" Hava {weather['condition']}, {weather['temp']} derece."
-            if weather.get("humidity"):
-                tts_text += f" Nem yüzde {weather['humidity']}."
-            if weather.get("wind_kmh"):
-                tts_text += f" Rüzgar saatte {weather['wind_kmh']} kilometre."
+            if weather:
+                tts_text += f" Hava {weather['condition']}, {weather['temp']} derece."
+                if weather.get("humidity"):
+                    tts_text += f" Nem yüzde {weather['humidity']}."
+                if weather.get("wind_kmh"):
+                    tts_text += f" Rüzgar saatte {weather['wind_kmh']} kilometre."
 
         video    = Path(video_path)
         out_path = video.parent / (video.stem + "_audio.mp4")

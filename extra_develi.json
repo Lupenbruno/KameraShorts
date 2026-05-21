@@ -1,0 +1,370 @@
+[
+ {
+  "city": "Develi",
+  "name": "Develi Cumhuriyet Meydani   1",
+  "slug": "cumhuriyet-meydani---1",
+  "embed_id": "3073",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Cumhuriyet Meydani   2",
+  "slug": "cumhuriyet-meydani---2",
+  "embed_id": "3074",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Cumhuriyet Meydani   3",
+  "slug": "cumhuriyet-meydani---3",
+  "embed_id": "3075",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Cumhuriyet Meydani   4",
+  "slug": "cumhuriyet-meydani---4",
+  "embed_id": "3076",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Kaymakamlik   1",
+  "slug": "kaymakamlik---1",
+  "embed_id": "3072",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Kaymakamlik   2",
+  "slug": "kaymakamlik---2",
+  "embed_id": "3071",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Kaymakamlik   3",
+  "slug": "kaymakamlik---3",
+  "embed_id": "3070",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Pazar Yolu  1",
+  "slug": "pazar-yolu--1",
+  "embed_id": "3080",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Pazar Yolu  2",
+  "slug": "pazar-yolu--2",
+  "embed_id": "3081",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Caddesi   1",
+  "slug": "tekir-caddesi---1",
+  "embed_id": "3087",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Caddesi   2",
+  "slug": "tekir-caddesi---2",
+  "embed_id": "3088",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Elbiz Caddesi   1",
+  "slug": "elbiz-caddesi---1",
+  "embed_id": "3085",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Elbiz Caddesi   2",
+  "slug": "elbiz-caddesi---2",
+  "embed_id": "3086",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Koskpinar",
+  "slug": "koskpinar",
+  "embed_id": "3117",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Otopark",
+  "slug": "tekir-otopark",
+  "embed_id": "3068",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Erciyes",
+  "slug": "tekir-erciyes",
+  "embed_id": "3065",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Cesmeler",
+  "slug": "tekir-cesmeler",
+  "embed_id": "3064",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Gondol Alt Istasyonu",
+  "slug": "tekir-gondol-alt-istasyonu",
+  "embed_id": "3084",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Tekir Kizak Alani",
+  "slug": "tekir-kizak-alani",
+  "embed_id": "3067",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Develi Kultepe Alt Istasyonu",
+  "slug": "develi-kultepe-alt-istasyonu",
+  "embed_id": "3055",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Hisarcik Keven Alt",
+  "slug": "hisarcik-keven-alt",
+  "embed_id": "3082",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Hisarcik Seyir Alani",
+  "slug": "hisarcik-seyir-alani",
+  "embed_id": "3083",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Hacilar Gondol Alt",
+  "slug": "hacilar-gondol-alt",
+  "embed_id": "3079",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Hacilar Gondol Ust",
+  "slug": "hacilar-gondol-ust",
+  "embed_id": "3077",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Canakkale Sehitleri Anit Parki 2 Kopcullu Mah",
+  "slug": "canakkale-sehitleri-anit-parki-2-kopcullu-mah",
+  "embed_id": "3078",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi 80 Yil Parki 1 Hasan Sahan Mah Tedas Yani",
+  "slug": "80-yil-parki-1-hasan-sahan-mah-tedas-yani",
+  "embed_id": "3044",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi 80 Yil Parki 2 Hasan Sahan Mah Tedas Yani",
+  "slug": "80-yil-parki-2-hasan-sahan-mah-tedas-yani",
+  "embed_id": "3045",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Engelsiz Park 1 Yeni Mahalle",
+  "slug": "engelsiz-park-1-yeni-mahalle",
+  "embed_id": "3046",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Engelsiz Park 2 Yeni Mahalle",
+  "slug": "engelsiz-park-2-yeni-mahalle",
+  "embed_id": "3047",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Engelsiz Park 3 Yeni Mahalle",
+  "slug": "engelsiz-park-3-yeni-mahalle",
+  "embed_id": "3048",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Kevser Park 1 Masim Koksal Mahallesi",
+  "slug": "kevser-park-1-masim-koksal-mahallesi",
+  "embed_id": "3051",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Kevser Park 2 Masim Koksal Mahallesi",
+  "slug": "kevser-park-2-masim-koksal-mahallesi",
+  "embed_id": "3052",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Koyluoglu Park 1 Asik Seyrani Mahallesi",
+  "slug": "koyluoglu-park-1-asik-seyrani-mahallesi",
+  "embed_id": "3053",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Koyluoglu Park 2 Asik Seyrani Mahallesi",
+  "slug": "koyluoglu-park-2-asik-seyrani-mahallesi",
+  "embed_id": "3054",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Inci Park 2 Cami Cedit Mahallesi",
+  "slug": "inci-park-2-cami-cedit-mahallesi",
+  "embed_id": "3056",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Ahmet Adacoglu Park 1 Alparslan Mahallesi",
+  "slug": "ahmet-adacoglu-park-1-alparslan-mahallesi",
+  "embed_id": "3057",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Ahmet Adacoglu Park 2 Alparslan Mahallesi",
+  "slug": "ahmet-adacoglu-park-2-alparslan-mahallesi",
+  "embed_id": "3058",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Ahmet Adacoglu Park 3 Alparslan Mahallesi",
+  "slug": "ahmet-adacoglu-park-3-alparslan-mahallesi",
+  "embed_id": "3059",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Ahmet Adacoglu Park 4 Alparslan Mahallesi",
+  "slug": "ahmet-adacoglu-park-4-alparslan-mahallesi",
+  "embed_id": "3060",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi 400 Evler Parki 1 Makif Ersoy Mah",
+  "slug": "400-evler-parki-1-makif-ersoy-mah",
+  "embed_id": "3061",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi 400 Evler Parki 2 Makif Ersoy Mah",
+  "slug": "400-evler-parki-2-makif-ersoy-mah",
+  "embed_id": "3062",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Abdulkadir Geylani Parki 1 Yeni Mahalle",
+  "slug": "abdulkadir-geylani-parki-1-yeni-mahalle",
+  "embed_id": "3063",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Muhsin Yazicioglu Parki 2 Asagieverek Mah",
+  "slug": "muhsin-yazicioglu-parki-2-asagieverek-mah",
+  "embed_id": "3066",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Sehit Harun Arslan Park 1 Fatih Mahallesi",
+  "slug": "sehit-harun-arslan-park-1-fatih-mahallesi",
+  "embed_id": "3105",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Sehit Harun Arslan Park   2 Fatih Mahallesi",
+  "slug": "sehit-harun-arslan-park---2-fatih-mahallesi",
+  "embed_id": "3106",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ },
+ {
+  "city": "Develi",
+  "name": "Develi Sehit Harun Arslan Park   4 Fatih Mahallesi",
+  "slug": "sehit-harun-arslan-park---4-fatih-mahallesi",
+  "embed_id": "3108",
+  "type": "develi_embed",
+  "source": "seyret.develi"
+ }
+]
